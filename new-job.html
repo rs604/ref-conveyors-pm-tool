@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>New Project — Ref Conveyors Project Tracker</title>
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+<div class="app">
+  <div id="topbar-root"></div>
+  <main class="content">
+    <div class="page-head"><div><h1>New Project</h1><p class="muted">Create a job card from a product template.</p></div></div>
+    <div class="table-card">
+      <div class="empty-state">
+        <h3>Coming next</h3>
+        <p>This page will let you pick a product type, pull in its task template, and create the job. Not built yet — flagged as the next build step.</p>
+        <a class="btn-secondary" href="dashboard.html">Back to Dashboard</a>
+      </div>
+    </div>
+  </main>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="assets/supabase-client.js"></script>
+<script src="assets/auth.js"></script>
+<script>
+(async () => {
+  const auth = await requireAuth();
+  if (!auth) return;
+  renderTopbar(auth.profile, "dashboard");
+})();
+</script>
+</body>
+</html>

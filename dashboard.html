@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard — Ref Conveyors Project Tracker</title>
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+<div class="app">
+  <div id="topbar-root"></div>
+  <main class="content">
+    <div class="page-head">
+      <div>
+        <h1>Dashboard</h1>
+        <p class="muted">Every active job, in one place.</p>
+      </div>
+      <a class="btn-primary" href="new-job.html">+ New Project</a>
+    </div>
+
+    <div class="stats-row" id="stats-row"></div>
+    <div class="table-card" id="jobs-card">
+      <div class="empty-state"><p>Loading…</p></div>
+    </div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="assets/supabase-client.js"></script>
+<script src="assets/auth.js"></script>
+<script>
+(async () => {
+  const auth = await requireAuth();
+  if (!auth) return;
+  renderTopbar(auth.profile, "dashboard");
+
+  const [{ data: jobs, error: jobsError }, { data: profiles }] = await Promise.all([
+    supabase.from("jobs").select("*, product_types(name)").order("created_at", { ascending: false }),
+    supabase.from("profiles").select("id, full_name"),
+  ]);
+
+  if (jobsError) {
+    document.getElementById("jobs-card").innerHTML =
+      `<div class="empty-state"><h3>Couldn't load jobs</h3><p>${escapeHtml(jobsError.message)}</p></div>`;
+    return;
+  }
+
+  const profileById = Object.fromEntries((profiles || []).map(p => [p.id, p]));
+  const jobIds = jobs.map(j => j.id);
+
+  let tasksByJob = {};
+  if (jobIds.length) {
+    const { data: tasks } = await supabase
+      .from("job_tasks")
+      .select("job_id, status, delay_days")
+      .in("job_id", jobIds);
+    for (const t of tasks || []) {
+      (tasksByJob[t.job_id] ||= []).push(t);
+    }
+  }
+
+  const jobStats = jobs.map(j => {
+    const tasks = tasksByJob[j.id] || [];
+    const total = tasks.length;
+    const completed = tasks.filter(t => t.status === "completed").length;
+    const delayedTasks = tasks.filter(t => t.delay_days > 0).length;
+    const startLate = j.planned_start_date && j.actual_start_date && j.actual_start_date > j.planned_start_date;
+    const isDelayed = delayedTasks > 0 || startLate;
+    const progress = total ? Math.round((completed / total) * 100) : 0;
+    return { job: j, total, completed, progress, isDelayed, delayedTasks };
+  });
+
+  const activeCount = jobs.length;
+  const delayedCount = jobStats.filter(s => s.isDelayed).length;
+  const onTrackCount = activeCount - delayedCount;
+
+  document.getElementById("stats-row").innerHTML = `
+    <div class="stat-card"><div class="stat-label">Active Projects</div><div class="stat-value">${activeCount}</div></div>
+    <div class="stat-card"><div class="stat-label">On Track</div><div class="stat-value stat-success">${onTrackCount}</div></div>
+    <div class="stat-card"><div class="stat-label">Delayed</div><div class="stat-value stat-warn">${delayedCount}</div></div>
+  `;
+
+  const jobsCard = document.getElementById("jobs-card");
+  if (!jobs.length) {
+    jobsCard.innerHTML = `
+      <div class="empty-state">
+        <h3>No jobs yet</h3>
+        <p>Create your first job card to start tracking.</p>
+        <a class="btn-primary" href="new-job.html">+ New Project</a>
+      </div>`;
+    return;
+  }
+
+  const rows = jobStats.map(({ job, total, completed, progress, isDelayed }) => {
+    const supervisor = job.supervisor_id ? profileById[job.supervisor_id] : null;
+    const statusPill = isDelayed
+      ? `<span class="status-pill status-delayed"><span class="dot"></span>Delayed</span>`
+      : progress === 100
+        ? `<span class="status-pill status-completed"><span class="dot"></span>Completed</span>`
+        : total === 0
+          ? `<span class="status-pill status-notstarted"><span class="dot"></span>Not Started</span>`
+          : `<span class="status-pill status-ontrack"><span class="dot"></span>On Track</span>`;
+    return `
+      <tr onclick="window.location.href='job.html?id=${job.id}'" style="cursor:pointer;">
+        <td class="job-no">${escapeHtml(job.job_no)}</td>
+        <td>${escapeHtml(job.customer_name)}</td>
+        <td><span class="tag">${escapeHtml(job.product_types?.name || "—")}</span></td>
+        <td>${completed} / ${total} tasks</td>
+        <td>${formatDate(job.planned_start_date)}</td>
+        <td>${statusPill}</td>
+        <td>${supervisor ? escapeHtml(supervisor.full_name) : "—"}</td>
+      </tr>`;
+  }).join("");
+
+  jobsCard.innerHTML = `
+    <table>
+      <thead>
+        <tr><th>Job No.</th><th>Customer</th><th>Product</th><th>Progress</th><th>Planned Start</th><th>Status</th><th>Supervisor</th></tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+})();
+</script>
+</body>
+</html>

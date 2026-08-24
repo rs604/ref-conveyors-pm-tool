@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Job — Ref Conveyors Project Tracker</title>
+<link rel="stylesheet" href="assets/styles.css">
+<style>
+.crumb{font-size:12.5px; color:var(--text-faint); margin-bottom:10px;}
+.crumb b{color:var(--text); font-weight:600;}
+.project-header{background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:22px 24px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:flex-start; gap:24px; flex-wrap:wrap;}
+.ph-left h1{font-size:20px; font-weight:700; display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+.ph-sub{font-size:13px; color:var(--text-muted); margin-top:4px;}
+.ph-stats{display:flex; gap:28px;}
+.ph-stat{text-align:right;}
+.ph-stat-label{font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-faint); font-weight:600;}
+.ph-stat-value{font-family:'Manrope',sans-serif; font-size:20px; font-weight:700; margin-top:4px;}
+.task-no{color:var(--text-faint); font-weight:600; font-size:11.5px;}
+.item-name{font-weight:600; font-size:13px;}
+.item-desc{font-size:11.5px; color:var(--text-faint); margin-top:2px;}
+.date-pair{font-size:12px; color:var(--text-muted); white-space:nowrap;}
+.date-pair b{color:var(--text); font-weight:600;}
+.delay-tag{font-size:11px; color:var(--warn-text); font-weight:600;}
+.reason{font-size:11px; color:var(--text-faint); margin-top:2px; max-width:160px;}
+.btn-mark{border:1.5px solid var(--accent); color:var(--accent-text); background:var(--accent-soft); padding:6px 12px; border-radius:7px; font-size:11.5px; font-weight:600;}
+</style>
+</head>
+<body>
+<div class="app">
+  <div id="topbar-root"></div>
+  <main class="content">
+    <div class="crumb">Projects / <b id="crumb-job">…</b></div>
+    <div class="project-header" id="project-header"><p class="muted">Loading…</p></div>
+    <div class="table-card" id="tasks-card"></div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="assets/supabase-client.js"></script>
+<script src="assets/auth.js"></script>
+<script>
+const jobId = new URLSearchParams(window.location.search).get("id");
+
+async function loadTasks(profileById) {
+  const { data: tasks } = await supabase
+    .from("job_tasks")
+    .select("*")
+    .eq("job_id", jobId)
+    .order("task_no");
+
+  const rows = (tasks || []).map(t => {
+    const doer = t.doer_id ? profileById[t.doer_id] : null;
+    const statusPill = t.status === "completed"
+      ? `<span class="status-pill status-completed"><span class="dot"></span>Completed</span>`
+      : t.status === "in_progress"
+        ? `<span class="status-pill status-ontrack"><span class="dot"></span>In Progress</span>`
+        : `<span class="status-pill status-notstarted"><span class="dot"></span>Pending</span>`;
+    const action = t.status === "completed"
+      ? ""
+      : `<button class="btn-mark" onclick="markCompleted('${t.id}')">Mark Completed</button>`;
+    return `
+      <tr>
+        <td class="task-no">${t.task_no}</td>
+        <td><div class="item-name">${escapeHtml(t.item_name)}</div>${t.task_description ? `<div class="item-desc">${escapeHtml(t.task_description)}</div>` : ""}</td>
+        <td>${t.qty ?? "—"} ${escapeHtml(t.uom || "")}</td>
+        <td>${doer ? escapeHtml(doer.full_name) : "—"}</td>
+        <td class="date-pair">${formatDate(t.planned_start_date)} → <b>${formatDate(t.planned_finish_date)}</b></td>
+        <td class="date-pair">${formatDate(t.actual_start_date)} → <b>${formatDate(t.actual_finish_date)}</b></td>
+        <td>${t.delay_days > 0 ? `<span class="delay-tag">${t.delay_days} day${t.delay_days > 1 ? "s" : ""}</span>${t.reason_for_delay ? `<div class="reason">${escapeHtml(t.reason_for_delay)}</div>` : ""}` : "—"}</td>
+        <td>${statusPill}</td>
+        <td>${action}</td>
+      </tr>`;
+  }).join("");
+
+  const card = document.getElementById("tasks-card");
+  if (!tasks || !tasks.length) {
+    card.innerHTML = `<div class="empty-state"><h3>No tasks on this job yet</h3><p>This product type may not have a task template loaded yet.</p></div>`;
+    return;
+  }
+  card.innerHTML = `
+    <table>
+      <thead><tr><th>No.</th><th>Item</th><th>Qty</th><th>Doer</th><th>Planned</th><th>Actual</th><th>Delay</th><th>Status</th><th></th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+async function markCompleted(taskId) {
+  const today = new Date().toISOString().slice(0, 10);
+  const { data: current } = await supabase.from("job_tasks").select("actual_start_date").eq("id", taskId).single();
+  await supabase.from("job_tasks").update({
+    status: "completed",
+    actual_start_date: current?.actual_start_date || today,
+    actual_finish_date: today,
+  }).eq("id", taskId);
+  location.reload();
+}
+
+(async () => {
+  const auth = await requireAuth();
+  if (!auth) return;
+  renderTopbar(auth.profile, "dashboard");
+
+  if (!jobId) {
+    document.getElementById("project-header").innerHTML = `<p class="muted">No job specified.</p>`;
+    return;
+  }
+
+  const [{ data: job, error }, { data: profiles }] = await Promise.all([
+    supabase.from("jobs").select("*, product_types(name)").eq("id", jobId).single(),
+    supabase.from("profiles").select("id, full_name"),
+  ]);
+
+  if (error || !job) {
+    document.getElementById("project-header").innerHTML = `<p class="muted">Job not found.</p>`;
+    return;
+  }
+
+  const profileById = Object.fromEntries((profiles || []).map(p => [p.id, p]));
+  const supervisor = job.supervisor_id ? profileById[job.supervisor_id] : null;
+
+  document.getElementById("crumb-job").textContent = job.job_no;
+  document.title = `${job.job_no} — Ref Conveyors Project Tracker`;
+
+  const { data: tasks } = await supabase.from("job_tasks").select("status").eq("job_id", jobId);
+  const total = (tasks || []).length;
+  const completed = (tasks || []).filter(t => t.status === "completed").length;
+
+  document.getElementById("project-header").innerHTML = `
+    <div class="ph-left">
+      <h1>${escapeHtml(job.job_no)} — ${escapeHtml(job.customer_name)} <span class="tag">${escapeHtml(job.product_types?.name || "—")}</span></h1>
+      <div class="ph-sub">${supervisor ? "Supervisor " + escapeHtml(supervisor.full_name) : "No supervisor assigned"}</div>
+    </div>
+    <div class="ph-stats">
+      <div class="ph-stat"><div class="ph-stat-label">Planned Start</div><div class="ph-stat-value" style="font-size:15px;">${formatDate(job.planned_start_date)}</div></div>
+      <div class="ph-stat"><div class="ph-stat-label">Actual Start</div><div class="ph-stat-value" style="font-size:15px;">${formatDate(job.actual_start_date)}</div></div>
+      <div class="ph-stat"><div class="ph-stat-label">Completion</div><div class="ph-stat-value">${completed} / ${total}</div></div>
+    </div>
+  `;
+
+  await loadTasks(profileById);
+})();
+</script>
+</body>
+</html>

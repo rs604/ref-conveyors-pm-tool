@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Create account — Ref Conveyors Project Tracker</title>
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+<div class="auth-page">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div class="logo-mark">RC</div>
+      <div>
+        <div class="logo-title">Ref Conveyors</div>
+        <div class="logo-sub">Project Tracker</div>
+      </div>
+    </div>
+    <h1>Create account</h1>
+    <p class="muted">For Ref Conveyors staff only.</p>
+
+    <div id="error-box" class="auth-error" style="display:none;"></div>
+
+    <form id="signup-form">
+      <div class="field">
+        <label for="full_name">Full name</label>
+        <input id="full_name" type="text" required>
+      </div>
+      <div class="field">
+        <label for="role">Role</label>
+        <select id="role" required>
+          <option value="owner">Owner</option>
+          <option value="designer">Designer</option>
+          <option value="fabricator">Fabricator</option>
+          <option value="purchase_executive">Purchase Executive</option>
+          <option value="supervisor" selected>Supervisor</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="email">Email</label>
+        <input id="email" type="email" autocomplete="username" required>
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input id="password" type="password" autocomplete="new-password" minlength="6" required>
+      </div>
+      <button type="submit" class="btn-primary auth-submit" id="submit-btn">Create account</button>
+    </form>
+
+    <div class="auth-footer">
+      Already have an account? <a href="index.html">Sign in</a>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="assets/supabase-client.js"></script>
+<script>
+document.getElementById("signup-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const full_name = document.getElementById("full_name").value.trim();
+  const role = document.getElementById("role").value;
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value;
+  const errorBox = document.getElementById("error-box");
+  const btn = document.getElementById("submit-btn");
+  errorBox.style.display = "none";
+  btn.textContent = "Creating…";
+  btn.disabled = true;
+
+  const { data, error } = await supabase.auth.signUp({ email, password });
+
+  if (error) {
+    errorBox.textContent = error.message;
+    errorBox.style.display = "block";
+    btn.textContent = "Create account";
+    btn.disabled = false;
+    return;
+  }
+
+  if (!data.session) {
+    // Email confirmation is switched on for this project — the account
+    // exists but can't sign in (and can't save its profile row) until
+    // that's turned off or the email is confirmed.
+    errorBox.textContent = "Account created, but email confirmation is required before you can sign in. Ask the app owner to turn off \"Confirm email\" in Supabase, or check your inbox to confirm.";
+    errorBox.style.display = "block";
+    btn.textContent = "Create account";
+    btn.disabled = false;
+    return;
+  }
+
+  const { error: profileError } = await supabase.from("profiles").insert({
+    id: data.user.id,
+    full_name,
+    role,
+    initials: full_name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join(""),
+  });
+
+  if (profileError) {
+    errorBox.textContent = "Account created but profile setup failed: " + profileError.message;
+    errorBox.style.display = "block";
+    btn.textContent = "Create account";
+    btn.disabled = false;
+    return;
+  }
+
+  window.location.href = "dashboard.html";
+});
+</script>
+</body>
+</html>
