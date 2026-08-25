@@ -26,13 +26,21 @@
 </style>
 </head>
 <body>
-<div class="app">
-  <div id="topbar-root"></div>
-  <main class="content">
-    <div class="crumb">Projects / <b id="crumb-job">…</b></div>
-    <div class="project-header" id="project-header"><p class="muted">Loading…</p></div>
-    <div class="table-card" id="tasks-card"></div>
-  </main>
+<div class="app-shell">
+  <div id="sidebar-root"></div>
+  <div class="main-area">
+    <header class="page-header">
+      <div class="ph-titles">
+        <h1 id="crumb-job">Job Detail</h1>
+        <p class="muted">Projects / job detail</p>
+      </div>
+      <div id="header-user-root"></div>
+    </header>
+    <main class="content">
+      <div class="project-header" id="project-header"><p class="muted">Loading…</p></div>
+      <div class="table-card" id="tasks-card"></div>
+    </main>
+  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -98,7 +106,7 @@ async function markCompleted(taskId) {
 (async () => {
   const auth = await requireAuth();
   if (!auth) return;
-  renderTopbar(auth.profile, "dashboard");
+  renderShell(auth.profile, "dashboard");
 
   if (!jobId) {
     document.getElementById("project-header").innerHTML = `<p class="muted">No job specified.</p>`;

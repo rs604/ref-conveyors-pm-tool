@@ -59,33 +59,45 @@ async function signOut() {
   window.location.href = "index.html";
 }
 
-// Renders the shared topbar into #topbar-root. `active` is one of
-// "dashboard" | "projects" | "purchase" | "my-tasks".
-function renderTopbar(profile, active) {
-  const root = document.getElementById("topbar-root");
-  if (!root) return;
-  const navItems = [
-    { key: "dashboard", label: "Dashboard", href: "dashboard.html" },
-    { key: "purchase", label: "Purchase", href: "purchase.html" },
-    { key: "my-tasks", label: "My Tasks", href: "my-tasks.html" },
-  ];
-  const nav = navItems
-    .map(
-      (n) =>
-        `<a class="nav-item${n.key === active ? " active" : ""}" href="${n.href}">${n.label}</a>`
-    )
-    .join("");
-  root.innerHTML = `
-    <header class="topbar">
-      <div class="topbar-left">
-        <div class="logo-mark">RC</div>
-        <div>
-          <div class="logo-title">Ref Conveyors</div>
-          <div class="logo-sub">Project Tracker</div>
+const SIDEBAR_ICONS = {
+  dashboard: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 12 3l9 6.5"/><path d="M5 10v10a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V10"/></svg>`,
+  "new-job": `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><path d="M12 12v6M9 15h6"/></svg>`,
+  purchase: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2 3h2l2.4 12.2a2 2 0 0 0 2 1.8h8.6a2 2 0 0 0 2-1.6L21 8H6"/></svg>`,
+  "my-tasks": `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>`,
+};
+
+const SIDEBAR_NAV = [
+  { key: "dashboard", label: "Dashboard", href: "dashboard.html", color: "ic-amber" },
+  { key: "new-job", label: "New Project", href: "new-job.html", color: "ic-blue" },
+  { key: "purchase", label: "Purchase", href: "purchase.html", color: "ic-green" },
+  { key: "my-tasks", label: "My Tasks", href: "my-tasks.html", color: "ic-teal" },
+];
+
+// Renders the left sidebar into #sidebar-root and the user chip + log out
+// button into #header-user-root. `active` is one of the SIDEBAR_NAV keys.
+function renderShell(profile, active) {
+  const sidebarRoot = document.getElementById("sidebar-root");
+  if (sidebarRoot) {
+    const nav = SIDEBAR_NAV.map((n) => `
+      <a class="sidebar-item${n.key === active ? " active" : ""}" href="${n.href}">
+        <span class="${n.color}">${SIDEBAR_ICONS[n.key]}</span>
+        <span>${n.label}</span>
+      </a>`).join("");
+    sidebarRoot.innerHTML = `
+      <aside class="sidebar">
+        <div class="sidebar-logo">
+          <div class="sidebar-logo-title">REF</div>
+          <div class="sidebar-logo-sub">PM Tracker</div>
         </div>
-      </div>
-      <nav class="topbar-nav">${nav}</nav>
-      <div class="topbar-right">
+        <nav class="sidebar-nav">${nav}</nav>
+        <div class="sidebar-footer">Ref Conveyors &amp; Fabricators</div>
+      </aside>`;
+  }
+
+  const headerRoot = document.getElementById("header-user-root");
+  if (headerRoot) {
+    headerRoot.innerHTML = `
+      <div class="ph-user">
         <div class="user-chip">
           <div class="avatar">${escapeHtml(initialsFrom(profile.full_name))}</div>
           <div>
@@ -93,8 +105,7 @@ function renderTopbar(profile, active) {
             <div class="user-role">${escapeHtml(ROLE_LABELS[profile.role] || profile.role)}</div>
           </div>
         </div>
-        <button class="btn-secondary" onclick="signOut()">Sign out</button>
-      </div>
-    </header>
-  `;
+        <button class="btn-secondary" onclick="signOut()">Log out</button>
+      </div>`;
+  }
 }

@@ -7,22 +7,24 @@
 <link rel="stylesheet" href="assets/styles.css">
 </head>
 <body>
-<div class="app">
-  <div id="topbar-root"></div>
-  <main class="content">
-    <div class="page-head">
-      <div>
+<div class="app-shell">
+  <div id="sidebar-root"></div>
+  <div class="main-area">
+    <header class="page-header">
+      <div class="ph-titles">
         <h1>Dashboard</h1>
         <p class="muted">Every active job, in one place.</p>
       </div>
-      <a class="btn-primary" href="new-job.html">+ New Project</a>
-    </div>
-
-    <div class="stats-row" id="stats-row"></div>
-    <div class="table-card" id="jobs-card">
-      <div class="empty-state"><p>Loading…</p></div>
-    </div>
-  </main>
+      <div id="header-user-root"></div>
+    </header>
+    <main class="content">
+      <div class="page-actions"><a class="btn-primary" href="new-job.html">+ New Project</a></div>
+      <div class="stats-row" id="stats-row"></div>
+      <div class="table-card" id="jobs-card">
+        <div class="empty-state"><p>Loading…</p></div>
+      </div>
+    </main>
+  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -32,7 +34,7 @@
 (async () => {
   const auth = await requireAuth();
   if (!auth) return;
-  renderTopbar(auth.profile, "dashboard");
+  renderShell(auth.profile, "dashboard");
 
   const [{ data: jobs, error: jobsError }, { data: profiles }] = await Promise.all([
     supabaseClient.from("jobs").select("*, product_types(name)").order("created_at", { ascending: false }),

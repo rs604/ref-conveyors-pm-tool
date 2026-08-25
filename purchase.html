@@ -7,18 +7,26 @@
 <link rel="stylesheet" href="assets/styles.css">
 </head>
 <body>
-<div class="app">
-  <div id="topbar-root"></div>
-  <main class="content">
-    <div class="page-head"><div><h1>Purchase Targets</h1><p class="muted">Materials needed across every job.</p></div></div>
-    <div class="table-card">
-      <div class="empty-state">
-        <h3>Coming next</h3>
-        <p>This page will list purchase_items per job with status tracking. Not built yet — flagged as the next build step.</p>
-        <a class="btn-secondary" href="dashboard.html">Back to Dashboard</a>
+<div class="app-shell">
+  <div id="sidebar-root"></div>
+  <div class="main-area">
+    <header class="page-header">
+      <div class="ph-titles">
+        <h1>Purchase Targets</h1>
+        <p class="muted">Materials needed across every job.</p>
       </div>
-    </div>
-  </main>
+      <div id="header-user-root"></div>
+    </header>
+    <main class="content">
+      <div class="table-card">
+        <div class="empty-state">
+          <h3>Coming next</h3>
+          <p>This page will list purchase_items per job with status tracking. Not built yet — flagged as the next build step.</p>
+          <a class="btn-secondary" href="dashboard.html">Back to Dashboard</a>
+        </div>
+      </div>
+    </main>
+  </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="assets/supabase-client.js"></script>
@@ -27,7 +35,7 @@
 (async () => {
   const auth = await requireAuth();
   if (!auth) return;
-  renderTopbar(auth.profile, "purchase");
+  renderShell(auth.profile, "purchase");
 })();
 </script>
 </body>

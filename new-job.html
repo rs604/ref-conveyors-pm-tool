@@ -5,30 +5,200 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>New Project — Ref Conveyors Project Tracker</title>
 <link rel="stylesheet" href="assets/styles.css">
+<style>
+.form-card{background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:26px 28px; max-width:640px;}
+.form-row{display:grid; grid-template-columns:1fr 1fr; gap:16px;}
+.form-hint{font-size:12px; color:var(--text-faint); margin-top:18px;}
+.template-note{background:var(--accent-soft); color:var(--accent-text); border-radius:8px; padding:10px 12px; font-size:12.5px; margin-top:16px; display:none;}
+.form-actions{display:flex; gap:10px; margin-top:22px;}
+</style>
 </head>
 <body>
-<div class="app">
-  <div id="topbar-root"></div>
-  <main class="content">
-    <div class="page-head"><div><h1>New Project</h1><p class="muted">Create a job card from a product template.</p></div></div>
-    <div class="table-card">
-      <div class="empty-state">
-        <h3>Coming next</h3>
-        <p>This page will let you pick a product type, pull in its task template, and create the job. Not built yet — flagged as the next build step.</p>
-        <a class="btn-secondary" href="dashboard.html">Back to Dashboard</a>
+<div class="app-shell">
+  <div id="sidebar-root"></div>
+  <div class="main-area">
+    <header class="page-header">
+      <div class="ph-titles">
+        <h1>New Project</h1>
+        <p class="muted">Create a job card from a product template.</p>
       </div>
-    </div>
-  </main>
+      <div id="header-user-root"></div>
+    </header>
+    <main class="content">
+      <div class="form-card">
+        <div id="error-box" class="auth-error" style="display:none;"></div>
+        <form id="new-job-form">
+          <div class="form-row">
+            <div class="field">
+              <label for="job_no">Job No.</label>
+              <input id="job_no" type="text" placeholder="e.g. JOB-2026-014" required>
+            </div>
+            <div class="field">
+              <label for="customer_name">Customer Name</label>
+              <input id="customer_name" type="text" required>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="field">
+              <label for="product_type_id">Product Type</label>
+              <select id="product_type_id" required>
+                <option value="">Loading…</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="supervisor_id">Supervisor</label>
+              <select id="supervisor_id">
+                <option value="">Unassigned</option>
+              </select>
+            </div>
+          </div>
+          <div class="field">
+            <label for="planned_start_date">Planned Start Date</label>
+            <input id="planned_start_date" type="date" required>
+          </div>
+          <div id="template-note" class="template-note"></div>
+          <div class="form-actions">
+            <button type="submit" class="btn-primary" id="submit-btn">Create Project</button>
+            <a class="btn-secondary" href="dashboard.html">Cancel</a>
+          </div>
+        </form>
+      </div>
+    </main>
+  </div>
 </div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="assets/supabase-client.js"></script>
 <script src="assets/auth.js"></script>
 <script>
+let templateCountByType = {};
+
+function addDays(dateStr, days) {
+  const d = new Date(dateStr + "T00:00:00");
+  d.setDate(d.getDate() + Math.round(days));
+  return d.toISOString().slice(0, 10);
+}
+
+async function loadDropdowns() {
+  const [{ data: productTypes }, { data: supervisors }, { data: templates }] = await Promise.all([
+    supabaseClient.from("product_types").select("id, name").order("name"),
+    supabaseClient.from("profiles").select("id, full_name").eq("role", "supervisor").order("full_name"),
+    supabaseClient.from("task_templates").select("product_type_id"),
+  ]);
+
+  (templates || []).forEach(t => {
+    templateCountByType[t.product_type_id] = (templateCountByType[t.product_type_id] || 0) + 1;
+  });
+
+  const ptSelect = document.getElementById("product_type_id");
+  ptSelect.innerHTML = (productTypes || []).map(pt =>
+    `<option value="${pt.id}">${escapeHtml(pt.name)}${templateCountByType[pt.id] ? "" : " (no template yet)"}</option>`
+  ).join("") || `<option value="">No product types found</option>`;
+
+  const svSelect = document.getElementById("supervisor_id");
+  svSelect.innerHTML = `<option value="">Unassigned</option>` + (supervisors || []).map(s =>
+    `<option value="${s.id}">${escapeHtml(s.full_name)}</option>`
+  ).join("");
+
+  updateTemplateNote();
+}
+
+function updateTemplateNote() {
+  const ptId = document.getElementById("product_type_id").value;
+  const note = document.getElementById("template-note");
+  const count = templateCountByType[ptId] || 0;
+  if (count > 0) {
+    note.style.display = "block";
+    note.textContent = `This will create ${count} task${count > 1 ? "s" : ""} from the "${document.getElementById("product_type_id").selectedOptions[0]?.textContent}" template.`;
+  } else {
+    note.style.display = "block";
+    note.textContent = `No task template loaded for this product type yet — the job will be created with no tasks. You can still track it, but task rows won't appear until a template is added.`;
+  }
+}
+
 (async () => {
   const auth = await requireAuth();
   if (!auth) return;
-  renderTopbar(auth.profile, "dashboard");
+  renderShell(auth.profile, "new-job");
+  await loadDropdowns();
+  document.getElementById("product_type_id").addEventListener("change", updateTemplateNote);
 })();
+
+document.getElementById("new-job-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const job_no = document.getElementById("job_no").value.trim();
+  const customer_name = document.getElementById("customer_name").value.trim();
+  const product_type_id = document.getElementById("product_type_id").value;
+  const supervisor_id = document.getElementById("supervisor_id").value || null;
+  const planned_start_date = document.getElementById("planned_start_date").value;
+  const errorBox = document.getElementById("error-box");
+  const btn = document.getElementById("submit-btn");
+  errorBox.style.display = "none";
+
+  if (!product_type_id) {
+    errorBox.textContent = "Please choose a product type.";
+    errorBox.style.display = "block";
+    return;
+  }
+
+  btn.textContent = "Creating…";
+  btn.disabled = true;
+
+  const { data: { session } } = await supabaseClient.auth.getSession();
+
+  const { data: job, error: jobError } = await supabaseClient.from("jobs").insert({
+    job_no,
+    customer_name,
+    product_type_id,
+    supervisor_id,
+    planned_start_date: planned_start_date || null,
+    created_by: session.user.id,
+  }).select().single();
+
+  if (jobError) {
+    errorBox.textContent = "Couldn't create job: " + jobError.message;
+    errorBox.style.display = "block";
+    btn.textContent = "Create Project";
+    btn.disabled = false;
+    return;
+  }
+
+  const { data: templates } = await supabaseClient
+    .from("task_templates")
+    .select("*")
+    .eq("product_type_id", product_type_id)
+    .order("task_no");
+
+  if (templates && templates.length) {
+    let cursor = planned_start_date || new Date().toISOString().slice(0, 10);
+    const taskRows = templates.map(t => {
+      const start = cursor;
+      const finish = addDays(start, Math.max((t.default_duration_days || 1) - 1, 0));
+      cursor = addDays(finish, 1);
+      return {
+        job_id: job.id,
+        task_no: t.task_no,
+        item_name: t.item_name,
+        task_description: t.task_description,
+        qty: t.default_qty,
+        uom: t.default_uom,
+        planned_start_date: start,
+        planned_finish_date: finish,
+        duration_days: t.default_duration_days,
+      };
+    });
+    const { error: tasksError } = await supabaseClient.from("job_tasks").insert(taskRows);
+    if (tasksError) {
+      errorBox.textContent = "Job created, but task rows failed: " + tasksError.message;
+      errorBox.style.display = "block";
+      btn.textContent = "Create Project";
+      btn.disabled = false;
+      return;
+    }
+  }
+
+  window.location.href = "job.html?id=" + job.id;
+});
 </script>
 </body>
 </html>
