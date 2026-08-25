@@ -114,9 +114,10 @@ renderSidebar("dashboard");
     return;
   }
 
-  const [{ data: job, error }, { data: profiles }] = await Promise.all([
+  const [{ data: job, error }, { data: profiles }, { data: supervisors }] = await Promise.all([
     supabaseClient.from("jobs").select("*, product_types(name)").eq("id", jobId).single(),
     supabaseClient.from("profiles").select("id, full_name"),
+    supabaseClient.from("supervisors").select("id, name"),
   ]);
 
   if (error || !job) {
@@ -125,7 +126,8 @@ renderSidebar("dashboard");
   }
 
   const profileById = Object.fromEntries((profiles || []).map(p => [p.id, p]));
-  const supervisor = job.supervisor_id ? profileById[job.supervisor_id] : null;
+  const supervisorById = Object.fromEntries((supervisors || []).map(s => [s.id, s]));
+  const supervisor = job.supervisor_id ? supervisorById[job.supervisor_id] : null;
 
   document.getElementById("crumb-job").textContent = job.job_no;
   document.title = `${job.job_no} — Ref Conveyors Project Tracker`;
@@ -137,7 +139,7 @@ renderSidebar("dashboard");
   document.getElementById("project-header").innerHTML = `
     <div class="ph-left">
       <h1>${escapeHtml(job.job_no)} — ${escapeHtml(job.customer_name)} <span class="tag">${escapeHtml(job.product_types?.name || "—")}</span></h1>
-      <div class="ph-sub">${supervisor ? "Supervisor " + escapeHtml(supervisor.full_name) : "No supervisor assigned"}</div>
+      <div class="ph-sub">${supervisor ? "Supervisor " + escapeHtml(supervisor.name) : "No supervisor assigned"}</div>
     </div>
     <div class="ph-stats">
       <div class="ph-stat"><div class="ph-stat-label">Planned Start</div><div class="ph-stat-value" style="font-size:15px;">${formatDate(job.planned_start_date)}</div></div>

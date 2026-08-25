@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Settings — Ref Conveyors Project Tracker</title>
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+<div class="app-shell">
+  <div id="sidebar-root"></div>
+  <div class="main-area">
+    <header class="page-header">
+      <div class="ph-titles">
+        <h1>Settings</h1>
+        <p class="muted">Supervisors and job number prefixes.</p>
+      </div>
+      <div id="header-user-root"></div>
+    </header>
+    <main class="content">
+      <div class="tabs">
+        <button type="button" class="tab-btn active" data-tab="supervisors">Supervisors</button>
+        <button type="button" class="tab-btn" data-tab="prefixes">Job No. Prefixes</button>
+      </div>
+
+      <div class="tab-panel active" id="panel-supervisors">
+        <div class="page-actions" style="margin-bottom:16px;">
+          <button type="button" class="btn-primary" id="open-add-supervisor">+ Add Supervisor</button>
+        </div>
+        <div class="table-card" id="supervisors-card">
+          <div class="empty-state"><p>Loading…</p></div>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="panel-prefixes">
+        <div class="table-card" id="prefixes-card">
+          <div class="empty-state"><p>Loading…</p></div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<div class="modal-overlay" id="add-supervisor-modal" hidden>
+  <div class="modal-box" style="max-width:420px;">
+    <div class="modal-head">
+      <h2>Add Supervisor</h2>
+      <button type="button" class="modal-close" id="close-add-supervisor" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div id="supervisor-error-box" class="auth-error" style="display:none;"></div>
+      <form id="add-supervisor-form">
+        <div class="field">
+          <label for="supervisor_name">Supervisor Name</label>
+          <input id="supervisor_name" type="text" required autofocus>
+        </div>
+        <div class="modal-actions">
+          <button type="submit" class="btn-primary" id="submit-supervisor">Add Supervisor</button>
+          <button type="button" class="btn-secondary" id="cancel-add-supervisor">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="assets/supabase-client.js"></script>
+<script src="assets/auth.js"></script>
+<script>
+renderSidebar("settings");
+
+// ---- Tabs ----
+document.querySelectorAll(".tab-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
+    document.querySelectorAll(".tab-panel").forEach((p) => p.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById("panel-" + btn.dataset.tab).classList.add("active");
+  });
+});
+
+// ---- Add Supervisor modal ----
+function openAddSupervisorModal() {
+  document.getElementById("add-supervisor-form").reset();
+  document.getElementById("supervisor-error-box").style.display = "none";
+  document.getElementById("add-supervisor-modal").hidden = false;
+}
+function closeAddSupervisorModal() {
+  document.getElementById("add-supervisor-modal").hidden = true;
+}
+document.getElementById("open-add-supervisor").addEventListener("click", openAddSupervisorModal);
+document.getElementById("close-add-supervisor").addEventListener("click", closeAddSupervisorModal);
+document.getElementById("cancel-add-supervisor").addEventListener("click", closeAddSupervisorModal);
+document.getElementById("add-supervisor-modal").addEventListener("click", (e) => {
+  if (e.target.id === "add-supervisor-modal") closeAddSupervisorModal();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !document.getElementById("add-supervisor-modal").hidden) closeAddSupervisorModal();
+});
+
+async function loadSupervisors() {
+  const card = document.getElementById("supervisors-card");
+  const { data, error } = await supabaseClient.from("supervisors").select("*").order("name");
+  if (error) {
+    card.innerHTML = `<div class="empty-state"><h3>Couldn't load supervisors</h3><p>${escapeHtml(error.message)}</p></div>`;
+    return;
+  }
+  if (!data.length) {
+    card.innerHTML = `<div class="empty-state"><h3>No supervisors yet</h3><p>Add a supervisor to assign them to jobs.</p></div>`;
+    return;
+  }
+  card.innerHTML = data.map((s) => `
+    <div class="list-row" data-id="${s.id}">
+      <div>
+        <div class="list-row-name">${escapeHtml(s.name)}</div>
+      </div>
+      <button type="button" class="btn-danger-text" data-delete-supervisor="${s.id}">Remove</button>
+    </div>`).join("");
+
+  card.querySelectorAll("[data-delete-supervisor]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      if (!confirm("Remove this supervisor? Jobs already assigned to them will become unassigned.")) return;
+      btn.disabled = true;
+      const { error: delError } = await supabaseClient.from("supervisors").delete().eq("id", btn.dataset.deleteSupervisor);
+      if (delError) {
+        alert("Couldn't remove: " + delError.message);
+        btn.disabled = false;
+        return;
+      }
+      loadSupervisors();
+    });
+  });
+}
+
+document.getElementById("add-supervisor-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const name = document.getElementById("supervisor_name").value.trim();
+  const errorBox = document.getElementById("supervisor-error-box");
+  const btn = document.getElementById("submit-supervisor");
+  errorBox.style.display = "none";
+  btn.textContent = "Adding…";
+  btn.disabled = true;
+
+  const { error } = await supabaseClient.from("supervisors").insert({ name });
+
+  btn.textContent = "Add Supervisor";
+  btn.disabled = false;
+
+  if (error) {
+    errorBox.textContent = "Couldn't add supervisor: " + error.message;
+    errorBox.style.display = "block";
+    return;
+  }
+  closeAddSupervisorModal();
+  loadSupervisors();
+});
+
+// ---- Job No. Prefixes ----
+async function loadPrefixes() {
+  const card = document.getElementById("prefixes-card");
+  const { data, error } = await supabaseClient.from("product_types").select("id, name, code_prefix").order("name");
+  if (error) {
+    card.innerHTML = `<div class="empty-state"><h3>Couldn't load product types</h3><p>${escapeHtml(error.message)}</p></div>`;
+    return;
+  }
+  card.innerHTML = data.map((pt) => `
+    <div class="list-row" data-id="${pt.id}">
+      <div>
+        <div class="list-row-name">${escapeHtml(pt.name)}</div>
+        <div class="list-row-sub">Job numbers look like ${escapeHtml(pt.code_prefix || "JOB")}-0001</div>
+      </div>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <input type="text" class="prefix-input" maxlength="10" value="${escapeHtml(pt.code_prefix || "")}" placeholder="e.g. BLC" data-prefix-input="${pt.id}">
+        <button type="button" class="btn-secondary btn-sm" data-save-prefix="${pt.id}">Save</button>
+      </div>
+    </div>`).join("");
+
+  card.querySelectorAll("[data-save-prefix]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const id = btn.dataset.savePrefix;
+      const input = card.querySelector(`[data-prefix-input="${id}"]`);
+      const value = input.value.trim().toUpperCase();
+      if (!value) {
+        alert("Prefix can't be empty.");
+        return;
+      }
+      btn.textContent = "Saving…";
+      btn.disabled = true;
+      const { error } = await supabaseClient.from("product_types").update({ code_prefix: value }).eq("id", id);
+      btn.textContent = "Save";
+      btn.disabled = false;
+      if (error) {
+        alert("Couldn't save: " + error.message);
+        return;
+      }
+      input.value = value;
+      loadPrefixes();
+    });
+  });
+}
+
+(async () => {
+  const auth = await requireAuth();
+  if (!auth) return;
+  renderHeaderUser(auth.profile);
+  await Promise.all([loadSupervisors(), loadPrefixes()]);
+})();
+</script>
+</body>
+</html>

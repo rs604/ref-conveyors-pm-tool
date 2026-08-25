@@ -19,14 +19,29 @@ see every job's status, root-cause delays, and per-task progress.
 - `job.html?id=...` — one job's task list, mark tasks completed
 - `purchase.html` — purchase targets per job (not built yet)
 - `my-tasks.html` — a supervisor's own assigned tasks (not built yet)
+- `settings.html` — Supervisors tab (add/remove supervisors, backed by the
+  `supervisors` table) and Job No. Prefixes tab (edit each product type's
+  job-number prefix)
+
+## Job numbers
+
+Job numbers are generated automatically, not typed in — the New Project
+modal has no Job No. field. On submit it calls the `next_job_no(product_type_id)`
+Postgres function (security definer, atomic via an update...returning on
+`product_types.next_seq`), which returns `<prefix>-0001`-style numbers using
+each product type's `code_prefix` (editable on the Settings → Job No.
+Prefixes tab). Current prefixes: Flat Belt Conveyor → BLC, CW Lift → CWL,
+Drum Lift → DWL, Overhead Conveyor → OHC.
 
 ## Database
 
 Schema lives in Supabase project `ref-conveyors-pm-tool` (ap-south-1). Core
 tables: `profiles`, `product_types`, `task_templates`, `jobs`, `job_tasks`,
-`purchase_items`. `task_templates` for "Flat Belt Conveyor" is seeded from
-the company's real job card sheet — other product types are still awaiting
-their templates.
+`purchase_items`, `supervisors`. `task_templates` for "Flat Belt Conveyor" is
+seeded from the company's real job card sheet — other product types are
+still awaiting their templates. `jobs.supervisor_id` references
+`supervisors`, not `profiles` — supervisors are a simple name list managed
+from Settings, separate from login accounts.
 
 ## First-time setup
 

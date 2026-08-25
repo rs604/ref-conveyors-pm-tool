@@ -44,10 +44,6 @@
       <form id="new-job-form">
         <div class="modal-grid">
           <div class="field">
-            <label for="job_no">Job No.</label>
-            <input id="job_no" type="text" placeholder="e.g. JOB-2026-014" required>
-          </div>
-          <div class="field">
             <label for="customer_name">Customer Name</label>
             <input id="customer_name" type="text" required>
           </div>
@@ -85,6 +81,7 @@
 renderSidebar("dashboard");
 
 let templateCountByType = {};
+let productTypeById = {};
 
 function addDays(dateStr, days) {
   const d = new Date(dateStr + "T00:00:00");
@@ -112,14 +109,16 @@ document.addEventListener("keydown", (e) => {
 
 async function loadNewProjectDropdowns() {
   const [{ data: productTypes }, { data: supervisors }, { data: templates }] = await Promise.all([
-    supabaseClient.from("product_types").select("id, name").order("name"),
-    supabaseClient.from("profiles").select("id, full_name").eq("role", "supervisor").order("full_name"),
+    supabaseClient.from("product_types").select("id, name, code_prefix").order("name"),
+    supabaseClient.from("supervisors").select("id, name").order("name"),
     supabaseClient.from("task_templates").select("product_type_id"),
   ]);
 
   (templates || []).forEach(t => {
     templateCountByType[t.product_type_id] = (templateCountByType[t.product_type_id] || 0) + 1;
   });
+
+  productTypeById = Object.fromEntries((productTypes || []).map(pt => [pt.id, pt]));
 
   const ptSelect = document.getElementById("product_type_id");
   ptSelect.innerHTML = (productTypes || []).map(pt =>
@@ -128,7 +127,7 @@ async function loadNewProjectDropdowns() {
 
   const svSelect = document.getElementById("supervisor_id");
   svSelect.innerHTML = `<option value="">Unassigned</option>` + (supervisors || []).map(s =>
-    `<option value="${s.id}">${escapeHtml(s.full_name)}</option>`
+    `<option value="${s.id}">${escapeHtml(s.name)}</option>`
   ).join("");
 
   updateTemplateNote();
@@ -139,12 +138,14 @@ function updateTemplateNote() {
   const ptId = select.value;
   const note = document.getElementById("template-note");
   const count = templateCountByType[ptId] || 0;
+  const prefix = (productTypeById[ptId] && productTypeById[ptId].code_prefix) || "JOB";
+  const prefixNote = `Job number will be auto-generated as ${prefix}-0001 style.`;
   if (count > 0) {
     note.style.display = "block";
-    note.textContent = `This will create ${count} task${count > 1 ? "s" : ""} from the "${select.selectedOptions[0]?.textContent}" template.`;
+    note.textContent = `This will create ${count} task${count > 1 ? "s" : ""} from the "${select.selectedOptions[0]?.textContent}" template. ${prefixNote}`;
   } else {
     note.style.display = "block";
-    note.textContent = `No task template loaded for this product type yet — the job will be created with no tasks. You can still track it, but task rows won't appear until a template is added.`;
+    note.textContent = `No task template loaded for this product type yet — the job will be created with no tasks. You can still track it, but task rows won't appear until a template is added. ${prefixNote}`;
   }
 }
 
@@ -152,7 +153,6 @@ document.getElementById("product_type_id").addEventListener("change", updateTemp
 
 document.getElementById("new-job-form").addEventListener("submit", async (e) => {
   e.preventDefault();
-  const job_no = document.getElementById("job_no").value.trim();
   const customer_name = document.getElementById("customer_name").value.trim();
   const product_type_id = document.getElementById("product_type_id").value;
   const supervisor_id = document.getElementById("supervisor_id").value || null;
@@ -171,6 +171,18 @@ document.getElementById("new-job-form").addEventListener("submit", async (e) => 
   btn.disabled = true;
 
   const { data: { session } } = await supabaseClient.auth.getSession();
+
+  const { data: job_no, error: jobNoError } = await supabaseClient.rpc("next_job_no", {
+    p_product_type_id: product_type_id,
+  });
+
+  if (jobNoError) {
+    errorBox.textContent = "Couldn't generate a job number: " + jobNoError.message;
+    errorBox.style.display = "block";
+    btn.textContent = "Create Project";
+    btn.disabled = false;
+    return;
+  }
 
   const { data: job, error: jobError } = await supabaseClient.from("jobs").insert({
     job_no,
@@ -232,9 +244,9 @@ document.getElementById("new-job-form").addEventListener("submit", async (e) => 
   renderHeaderUser(auth.profile);
   await loadNewProjectDropdowns();
 
-  const [{ data: jobs, error: jobsError }, { data: profiles }] = await Promise.all([
+  const [{ data: jobs, error: jobsError }, { data: supervisorRows }] = await Promise.all([
     supabaseClient.from("jobs").select("*, product_types(name)").order("created_at", { ascending: false }),
-    supabaseClient.from("profiles").select("id, full_name"),
+    supabaseClient.from("supervisors").select("id, name"),
   ]);
 
   if (jobsError) {
@@ -243,7 +255,7 @@ document.getElementById("new-job-form").addEventListener("submit", async (e) => 
     return;
   }
 
-  const profileById = Object.fromEntries((profiles || []).map(p => [p.id, p]));
+  const supervisorById = Object.fromEntries((supervisorRows || []).map(s => [s.id, s]));
   const jobIds = jobs.map(j => j.id);
 
   let tasksByJob = {};
@@ -290,7 +302,7 @@ document.getElementById("new-job-form").addEventListener("submit", async (e) => 
   }
 
   const rows = jobStats.map(({ job, total, completed, progress, isDelayed }) => {
-    const supervisor = job.supervisor_id ? profileById[job.supervisor_id] : null;
+    const supervisor = job.supervisor_id ? supervisorById[job.supervisor_id] : null;
     const statusPill = isDelayed
       ? `<span class="status-pill status-delayed"><span class="dot"></span>Delayed</span>`
       : progress === 100
@@ -306,7 +318,7 @@ document.getElementById("new-job-form").addEventListener("submit", async (e) => 
         <td>${completed} / ${total} tasks</td>
         <td>${formatDate(job.planned_start_date)}</td>
         <td>${statusPill}</td>
-        <td>${supervisor ? escapeHtml(supervisor.full_name) : "—"}</td>
+        <td>${supervisor ? escapeHtml(supervisor.name) : "—"}</td>
       </tr>`;
   }).join("");
 
