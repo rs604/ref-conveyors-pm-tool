@@ -113,6 +113,9 @@ tr:hover td{background:var(--surface-2);}
 .auth-page{min-height:100vh; display:flex; align-items:center; justify-content:center; background:var(--bg); padding:20px;}
 .auth-card{background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:32px; width:100%; max-width:380px; box-shadow:0 4px 24px rgba(20,24,40,0.06);}
 .auth-logo{display:flex; align-items:center; gap:10px; margin-bottom:24px;}
+.logo-mark{width:36px; height:36px; border-radius:9px; background:var(--sidebar-bg); color:#fff; display:flex; align-items:center; justify-content:center; font-family:'Manrope',sans-serif; font-weight:800; font-size:12.5px; letter-spacing:.01em; flex-shrink:0;}
+.logo-title{font-family:'Manrope',sans-serif; font-weight:800; font-size:15px; line-height:1.25; color:var(--text);}
+.logo-sub{font-size:10.5px; color:var(--ic-blue); font-weight:600; letter-spacing:.06em; text-transform:uppercase; margin-top:1px;}
 .auth-card h1{font-size:18px; font-weight:700; margin-bottom:4px;}
 .auth-card .muted{margin-bottom:20px;}
 .field{margin-bottom:14px;}
