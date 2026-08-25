@@ -58,9 +58,12 @@ async function requireAuth() {
     .single();
 
   if (error || !profile) {
-    // Signed in with Supabase Auth but no profile row yet — shouldn't
-    // normally happen (signup.html creates both together), but don't
-    // strand the user on a broken page.
+    // A valid-looking session with no matching profile row — most likely
+    // a stale/orphaned session left over from an account that no longer
+    // exists (e.g. removed directly in the database) rather than a genuine
+    // new user. Sign out first so the bad session doesn't keep coming back
+    // and silently bouncing this device to signup.html on every visit.
+    await supabaseClient.auth.signOut();
     window.location.href = "signup.html";
     return null;
   }
