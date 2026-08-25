@@ -76,7 +76,7 @@ let templateCountByType = {};
 function addDays(dateStr, days) {
   const d = new Date(dateStr + "T00:00:00");
   d.setDate(d.getDate() + Math.round(days));
-  return d.toISOString().slice(0, 10);
+  return localDateStr(d);
 }
 
 async function loadDropdowns() {
@@ -170,7 +170,7 @@ document.getElementById("new-job-form").addEventListener("submit", async (e) => 
     .order("task_no");
 
   if (templates && templates.length) {
-    let cursor = planned_start_date || new Date().toISOString().slice(0, 10);
+    let cursor = planned_start_date || localDateStr();
     const taskRows = templates.map(t => {
       const start = cursor;
       const finish = addDays(start, Math.max((t.default_duration_days || 1) - 1, 0));

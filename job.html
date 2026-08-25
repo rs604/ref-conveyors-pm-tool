@@ -93,7 +93,7 @@ async function loadTasks(profileById) {
 }
 
 async function markCompleted(taskId) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDateStr();
   const { data: current } = await supabaseClient.from("job_tasks").select("actual_start_date").eq("id", taskId).single();
   await supabaseClient.from("job_tasks").update({
     status: "completed",

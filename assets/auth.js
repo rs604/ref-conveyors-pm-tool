@@ -30,6 +30,19 @@ function formatDate(dateStr) {
   return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 }
 
+// Returns a YYYY-MM-DD string for a Date using its LOCAL calendar fields.
+// Deliberately does not use toISOString() (that reads UTC fields, which
+// silently shifts the date back a day for anyone in a timezone ahead of
+// UTC — e.g. India, UTC+5:30 — exactly this app's users). Use this
+// everywhere "today" or a computed date needs to become a plain date string.
+function localDateStr(d) {
+  d = d || new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 // Redirects to login if not signed in. Returns { user, profile }.
 // Call at the top of every protected page.
 async function requireAuth() {
