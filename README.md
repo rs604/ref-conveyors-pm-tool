@@ -13,9 +13,10 @@ see every job's status, root-cause delays, and per-task progress.
 
 - `index.html` — sign in
 - `signup.html` — create an account (first-time setup)
-- `dashboard.html` — every job, status, and progress (Owner / PC view)
+- `dashboard.html` — every job, status, and progress (Owner / PC view); the
+  "+ New Project" button opens a modal that creates a job from a product
+  template — there's no separate new-job page
 - `job.html?id=...` — one job's task list, mark tasks completed
-- `new-job.html` — create a job from a product template (not built yet)
 - `purchase.html` — purchase targets per job (not built yet)
 - `my-tasks.html` — a supervisor's own assigned tasks (not built yet)
 

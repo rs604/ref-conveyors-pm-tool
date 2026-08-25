@@ -32,10 +32,11 @@
 <script src="assets/supabase-client.js"></script>
 <script src="assets/auth.js"></script>
 <script>
+renderSidebar("purchase");
 (async () => {
   const auth = await requireAuth();
   if (!auth) return;
-  renderShell(auth.profile, "purchase");
+  renderHeaderUser(auth.profile);
 })();
 </script>
 </body>

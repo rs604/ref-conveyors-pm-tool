@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Dashboard — Ref Conveyors Project Tracker</title>
 <link rel="stylesheet" href="assets/styles.css">
+<style>
+.template-note{background:var(--accent-soft); color:var(--accent-text); border-radius:8px; padding:10px 12px; font-size:12.5px; margin-top:4px; display:none;}
+.modal-actions{display:flex; gap:10px; margin-top:20px;}
+</style>
 </head>
 <body>
 <div class="app-shell">
@@ -18,8 +22,10 @@
       <div id="header-user-root"></div>
     </header>
     <main class="content">
-      <div class="page-actions"><a class="btn-primary" href="new-job.html">+ New Project</a></div>
-      <div class="stats-row" id="stats-row"></div>
+      <div class="stats-row" id="stats-row">
+        <div id="stats-cards" style="display:contents"></div>
+        <button type="button" class="btn-primary btn-new-project" id="open-new-project">+ New Project</button>
+      </div>
       <div class="table-card" id="jobs-card">
         <div class="empty-state"><p>Loading…</p></div>
       </div>
@@ -27,14 +33,204 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="new-project-modal" hidden>
+  <div class="modal-box">
+    <div class="modal-head">
+      <h2>New Project</h2>
+      <button type="button" class="modal-close" id="close-new-project" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div id="modal-error-box" class="auth-error" style="display:none;"></div>
+      <form id="new-job-form">
+        <div class="modal-grid">
+          <div class="field">
+            <label for="job_no">Job No.</label>
+            <input id="job_no" type="text" placeholder="e.g. JOB-2026-014" required>
+          </div>
+          <div class="field">
+            <label for="customer_name">Customer Name</label>
+            <input id="customer_name" type="text" required>
+          </div>
+          <div class="field">
+            <label for="product_type_id">Product Type</label>
+            <select id="product_type_id" required>
+              <option value="">Loading…</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="supervisor_id">Supervisor</label>
+            <select id="supervisor_id">
+              <option value="">Unassigned</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="planned_start_date">Planned Start Date</label>
+            <input id="planned_start_date" type="date" required>
+          </div>
+        </div>
+        <div id="template-note" class="template-note"></div>
+        <div class="modal-actions">
+          <button type="submit" class="btn-primary" id="submit-new-job">Create Project</button>
+          <button type="button" class="btn-secondary" id="cancel-new-project">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="assets/supabase-client.js"></script>
 <script src="assets/auth.js"></script>
 <script>
+renderSidebar("dashboard");
+
+let templateCountByType = {};
+
+function addDays(dateStr, days) {
+  const d = new Date(dateStr + "T00:00:00");
+  d.setDate(d.getDate() + Math.round(days));
+  return localDateStr(d);
+}
+
+function openNewProjectModal() {
+  document.getElementById("new-project-modal").hidden = false;
+}
+function closeNewProjectModal() {
+  document.getElementById("new-project-modal").hidden = true;
+  document.getElementById("modal-error-box").style.display = "none";
+}
+
+document.getElementById("open-new-project").addEventListener("click", openNewProjectModal);
+document.getElementById("close-new-project").addEventListener("click", closeNewProjectModal);
+document.getElementById("cancel-new-project").addEventListener("click", closeNewProjectModal);
+document.getElementById("new-project-modal").addEventListener("click", (e) => {
+  if (e.target.id === "new-project-modal") closeNewProjectModal();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !document.getElementById("new-project-modal").hidden) closeNewProjectModal();
+});
+
+async function loadNewProjectDropdowns() {
+  const [{ data: productTypes }, { data: supervisors }, { data: templates }] = await Promise.all([
+    supabaseClient.from("product_types").select("id, name").order("name"),
+    supabaseClient.from("profiles").select("id, full_name").eq("role", "supervisor").order("full_name"),
+    supabaseClient.from("task_templates").select("product_type_id"),
+  ]);
+
+  (templates || []).forEach(t => {
+    templateCountByType[t.product_type_id] = (templateCountByType[t.product_type_id] || 0) + 1;
+  });
+
+  const ptSelect = document.getElementById("product_type_id");
+  ptSelect.innerHTML = (productTypes || []).map(pt =>
+    `<option value="${pt.id}">${escapeHtml(pt.name)}${templateCountByType[pt.id] ? "" : " (no template yet)"}</option>`
+  ).join("") || `<option value="">No product types found</option>`;
+
+  const svSelect = document.getElementById("supervisor_id");
+  svSelect.innerHTML = `<option value="">Unassigned</option>` + (supervisors || []).map(s =>
+    `<option value="${s.id}">${escapeHtml(s.full_name)}</option>`
+  ).join("");
+
+  updateTemplateNote();
+}
+
+function updateTemplateNote() {
+  const select = document.getElementById("product_type_id");
+  const ptId = select.value;
+  const note = document.getElementById("template-note");
+  const count = templateCountByType[ptId] || 0;
+  if (count > 0) {
+    note.style.display = "block";
+    note.textContent = `This will create ${count} task${count > 1 ? "s" : ""} from the "${select.selectedOptions[0]?.textContent}" template.`;
+  } else {
+    note.style.display = "block";
+    note.textContent = `No task template loaded for this product type yet — the job will be created with no tasks. You can still track it, but task rows won't appear until a template is added.`;
+  }
+}
+
+document.getElementById("product_type_id").addEventListener("change", updateTemplateNote);
+
+document.getElementById("new-job-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const job_no = document.getElementById("job_no").value.trim();
+  const customer_name = document.getElementById("customer_name").value.trim();
+  const product_type_id = document.getElementById("product_type_id").value;
+  const supervisor_id = document.getElementById("supervisor_id").value || null;
+  const planned_start_date = document.getElementById("planned_start_date").value;
+  const errorBox = document.getElementById("modal-error-box");
+  const btn = document.getElementById("submit-new-job");
+  errorBox.style.display = "none";
+
+  if (!product_type_id) {
+    errorBox.textContent = "Please choose a product type.";
+    errorBox.style.display = "block";
+    return;
+  }
+
+  btn.textContent = "Creating…";
+  btn.disabled = true;
+
+  const { data: { session } } = await supabaseClient.auth.getSession();
+
+  const { data: job, error: jobError } = await supabaseClient.from("jobs").insert({
+    job_no,
+    customer_name,
+    product_type_id,
+    supervisor_id,
+    planned_start_date: planned_start_date || null,
+    created_by: session.user.id,
+  }).select().single();
+
+  if (jobError) {
+    errorBox.textContent = "Couldn't create job: " + jobError.message;
+    errorBox.style.display = "block";
+    btn.textContent = "Create Project";
+    btn.disabled = false;
+    return;
+  }
+
+  const { data: templates } = await supabaseClient
+    .from("task_templates")
+    .select("*")
+    .eq("product_type_id", product_type_id)
+    .order("task_no");
+
+  if (templates && templates.length) {
+    let cursor = planned_start_date || localDateStr();
+    const taskRows = templates.map(t => {
+      const start = cursor;
+      const finish = addDays(start, Math.max((t.default_duration_days || 1) - 1, 0));
+      cursor = addDays(finish, 1);
+      return {
+        job_id: job.id,
+        task_no: t.task_no,
+        item_name: t.item_name,
+        task_description: t.task_description,
+        qty: t.default_qty,
+        uom: t.default_uom,
+        planned_start_date: start,
+        planned_finish_date: finish,
+        duration_days: t.default_duration_days,
+      };
+    });
+    const { error: tasksError } = await supabaseClient.from("job_tasks").insert(taskRows);
+    if (tasksError) {
+      errorBox.textContent = "Job created, but task rows failed: " + tasksError.message;
+      errorBox.style.display = "block";
+      btn.textContent = "Create Project";
+      btn.disabled = false;
+      return;
+    }
+  }
+
+  window.location.href = "job.html?id=" + job.id;
+});
+
 (async () => {
   const auth = await requireAuth();
   if (!auth) return;
-  renderShell(auth.profile, "dashboard");
+  renderHeaderUser(auth.profile);
+  await loadNewProjectDropdowns();
 
   const [{ data: jobs, error: jobsError }, { data: profiles }] = await Promise.all([
     supabaseClient.from("jobs").select("*, product_types(name)").order("created_at", { ascending: false }),
@@ -76,7 +272,7 @@
   const delayedCount = jobStats.filter(s => s.isDelayed).length;
   const onTrackCount = activeCount - delayedCount;
 
-  document.getElementById("stats-row").innerHTML = `
+  document.getElementById("stats-cards").innerHTML = `
     <div class="stat-card"><div class="stat-label">Active Projects</div><div class="stat-value">${activeCount}</div></div>
     <div class="stat-card"><div class="stat-label">On Track</div><div class="stat-value stat-success">${onTrackCount}</div></div>
     <div class="stat-card"><div class="stat-label">Delayed</div><div class="stat-value stat-warn">${delayedCount}</div></div>
@@ -88,7 +284,7 @@
       <div class="empty-state">
         <h3>No jobs yet</h3>
         <p>Create your first job card to start tracking.</p>
-        <a class="btn-primary" href="new-job.html">+ New Project</a>
+        <button type="button" class="btn-primary" onclick="openNewProjectModal()">+ New Project</button>
       </div>`;
     return;
   }

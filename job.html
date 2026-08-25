@@ -103,10 +103,11 @@ async function markCompleted(taskId) {
   location.reload();
 }
 
+renderSidebar("dashboard");
 (async () => {
   const auth = await requireAuth();
   if (!auth) return;
-  renderShell(auth.profile, "dashboard");
+  renderHeaderUser(auth.profile);
 
   if (!jobId) {
     document.getElementById("project-header").innerHTML = `<p class="muted">No job specified.</p>`;

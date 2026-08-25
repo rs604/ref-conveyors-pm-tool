@@ -56,6 +56,11 @@ input,select{font-family:inherit;}
 .user-role{font-size:11px; color:var(--text-faint);}
 
 /* ---- Left sidebar ---- */
+/* #sidebar-root is pre-painted with the sidebar's own width/background
+   BEFORE renderSidebar() fills it in, so there's no visible flash of empty
+   (light-colored) space between navigating to a new page and the sidebar
+   JS running. */
+#sidebar-root{width:var(--sidebar-w); flex-shrink:0; background:var(--sidebar-bg); min-height:100vh;}
 .sidebar{width:var(--sidebar-w); flex-shrink:0; background:var(--sidebar-bg); display:flex; flex-direction:column; min-height:100vh; position:sticky; top:0;}
 .sidebar-logo{padding:20px 20px 16px; border-bottom:1px solid var(--sidebar-border);}
 .sidebar-logo-title{font-family:'Manrope',sans-serif; font-weight:800; font-size:17px; color:#fff; letter-spacing:.02em;}
@@ -89,6 +94,25 @@ input,select{font-family:inherit;}
 .stat-value{font-family:'Manrope',sans-serif; font-size:26px; font-weight:700; margin-top:6px;}
 .stat-success{color:var(--success-text);}
 .stat-warn{color:var(--warn-text);}
+/* Sits in the stats-row grid's 4th column (grid items stretch to the row's
+   height by default), so it lines up exactly with the stat cards instead of
+   floating above them on its own line. */
+.btn-new-project{justify-content:center; font-size:13.5px; grid-column:4;}
+
+/* ---- Modal ---- */
+.modal-overlay{position:fixed; inset:0; background:rgba(15,20,32,0.5); display:flex; align-items:center; justify-content:center; padding:20px; z-index:100;}
+.modal-overlay[hidden]{display:none;}
+.modal-box{background:var(--surface); border-radius:14px; width:100%; max-width:720px; max-height:90vh; overflow-y:auto; box-shadow:0 12px 40px rgba(20,24,40,0.18);}
+.modal-head{display:flex; justify-content:space-between; align-items:flex-start; padding:22px 24px 0;}
+.modal-head h2{font-size:17px; font-weight:700;}
+.modal-close{background:none; border:none; color:var(--text-faint); font-size:20px; line-height:1; padding:4px; border-radius:6px;}
+.modal-close:hover{background:var(--surface-2); color:var(--text);}
+.modal-body{padding:18px 24px 24px;}
+.modal-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:16px;}
+.modal-grid .field.span-2{grid-column:span 2;}
+.modal-grid .field.span-3{grid-column:span 3;}
+@media (max-width:760px){ .modal-grid{grid-template-columns:repeat(2,1fr);} }
+@media (max-width:520px){ .modal-grid{grid-template-columns:1fr;} }
 
 .table-card{background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden; box-shadow:0 1px 2px rgba(20,24,40,0.03);}
 table{width:100%; border-collapse:collapse;}
