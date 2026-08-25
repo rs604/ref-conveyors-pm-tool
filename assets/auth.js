@@ -33,12 +33,12 @@ function formatDate(dateStr) {
 // Redirects to login if not signed in. Returns { user, profile }.
 // Call at the top of every protected page.
 async function requireAuth() {
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data: { session } } = await supabaseClient.auth.getSession();
   if (!session) {
     window.location.href = "index.html";
     return null;
   }
-  const { data: profile, error } = await supabase
+  const { data: profile, error } = await supabaseClient
     .from("profiles")
     .select("*")
     .eq("id", session.user.id)
@@ -55,7 +55,7 @@ async function requireAuth() {
 }
 
 async function signOut() {
-  await supabase.auth.signOut();
+  await supabaseClient.auth.signOut();
   window.location.href = "index.html";
 }
 

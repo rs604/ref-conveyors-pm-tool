@@ -44,7 +44,7 @@
 <script>
 (async () => {
   // Already signed in? Skip straight to the dashboard.
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data: { session } } = await supabaseClient.auth.getSession();
   if (session) window.location.href = "dashboard.html";
 })();
 
@@ -58,7 +58,7 @@ document.getElementById("login-form").addEventListener("submit", async (e) => {
   btn.textContent = "Signing in…";
   btn.disabled = true;
 
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
 
   if (error) {
     errorBox.textContent = error.message === "Invalid login credentials"

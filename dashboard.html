@@ -35,8 +35,8 @@
   renderTopbar(auth.profile, "dashboard");
 
   const [{ data: jobs, error: jobsError }, { data: profiles }] = await Promise.all([
-    supabase.from("jobs").select("*, product_types(name)").order("created_at", { ascending: false }),
-    supabase.from("profiles").select("id, full_name"),
+    supabaseClient.from("jobs").select("*, product_types(name)").order("created_at", { ascending: false }),
+    supabaseClient.from("profiles").select("id, full_name"),
   ]);
 
   if (jobsError) {
@@ -50,7 +50,7 @@
 
   let tasksByJob = {};
   if (jobIds.length) {
-    const { data: tasks } = await supabase
+    const { data: tasks } = await supabaseClient
       .from("job_tasks")
       .select("job_id, status, delay_days")
       .in("job_id", jobIds);

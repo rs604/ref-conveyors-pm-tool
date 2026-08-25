@@ -68,7 +68,7 @@ document.getElementById("signup-form").addEventListener("submit", async (e) => {
   btn.textContent = "Creating…";
   btn.disabled = true;
 
-  const { data, error } = await supabase.auth.signUp({ email, password });
+  const { data, error } = await supabaseClient.auth.signUp({ email, password });
 
   if (error) {
     errorBox.textContent = error.message;
@@ -89,7 +89,7 @@ document.getElementById("signup-form").addEventListener("submit", async (e) => {
     return;
   }
 
-  const { error: profileError } = await supabase.from("profiles").insert({
+  const { error: profileError } = await supabaseClient.from("profiles").insert({
     id: data.user.id,
     full_name,
     role,

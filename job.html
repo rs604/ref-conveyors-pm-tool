@@ -42,7 +42,7 @@
 const jobId = new URLSearchParams(window.location.search).get("id");
 
 async function loadTasks(profileById) {
-  const { data: tasks } = await supabase
+  const { data: tasks } = await supabaseClient
     .from("job_tasks")
     .select("*")
     .eq("job_id", jobId)
@@ -86,8 +86,8 @@ async function loadTasks(profileById) {
 
 async function markCompleted(taskId) {
   const today = new Date().toISOString().slice(0, 10);
-  const { data: current } = await supabase.from("job_tasks").select("actual_start_date").eq("id", taskId).single();
-  await supabase.from("job_tasks").update({
+  const { data: current } = await supabaseClient.from("job_tasks").select("actual_start_date").eq("id", taskId).single();
+  await supabaseClient.from("job_tasks").update({
     status: "completed",
     actual_start_date: current?.actual_start_date || today,
     actual_finish_date: today,
@@ -106,8 +106,8 @@ async function markCompleted(taskId) {
   }
 
   const [{ data: job, error }, { data: profiles }] = await Promise.all([
-    supabase.from("jobs").select("*, product_types(name)").eq("id", jobId).single(),
-    supabase.from("profiles").select("id, full_name"),
+    supabaseClient.from("jobs").select("*, product_types(name)").eq("id", jobId).single(),
+    supabaseClient.from("profiles").select("id, full_name"),
   ]);
 
   if (error || !job) {
@@ -121,7 +121,7 @@ async function markCompleted(taskId) {
   document.getElementById("crumb-job").textContent = job.job_no;
   document.title = `${job.job_no} — Ref Conveyors Project Tracker`;
 
-  const { data: tasks } = await supabase.from("job_tasks").select("status").eq("job_id", jobId);
+  const { data: tasks } = await supabaseClient.from("job_tasks").select("status").eq("job_id", jobId);
   const total = (tasks || []).length;
   const completed = (tasks || []).filter(t => t.status === "completed").length;
 
