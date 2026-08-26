@@ -30,20 +30,21 @@
 /* ---- Editable task grid ---- */
 .tasks-panel{background:var(--surface); border:1px solid var(--border); border-radius:12px; box-shadow:0 1px 2px rgba(20,24,40,0.03); overflow:hidden;}
 .tasks-scroll{max-height:calc(100vh - 320px); min-height:220px; overflow:auto;}
-.tasks-scroll table{width:100%; border-collapse:collapse;}
-.tasks-scroll thead th{position:sticky; top:0; z-index:2;}
+.tasks-scroll table{width:max-content; min-width:100%; border-collapse:collapse;}
+.tasks-scroll thead th{position:sticky; top:0; z-index:2; white-space:nowrap;}
 .tasks-add-row{padding:12px 16px; border-top:1px solid var(--border);}
 
-.grid-input{display:block; width:100%; border:1px solid transparent; background:transparent; font:inherit; color:var(--text); padding:5px 6px; border-radius:6px;}
+.grid-input{display:block; border:1px solid transparent; background:transparent; font:inherit; color:var(--text); padding:5px 6px; border-radius:6px;}
 .grid-input:hover{border-color:var(--border);}
 .grid-input:focus{outline:none; border-color:var(--accent); background:var(--surface); box-shadow:0 0 0 3px var(--accent-soft);}
-.grid-input.name-input{font-weight:600; font-size:13px;}
-.grid-input.desc-input{font-size:11.5px; color:var(--text-faint); margin-top:1px;}
-.grid-input.qty-input{width:56px; text-align:right;}
-.grid-input.uom-input{width:60px;}
-.grid-input.date-input{width:124px;}
+.grid-input.name-input{font-weight:600; font-size:13px; width:200px;}
+.grid-input.desc-input{font-size:11.5px; color:var(--text-faint); margin-top:1px; width:200px;}
+.grid-input.qty-input{width:60px; text-align:right;}
+.grid-input.uom-input{width:64px;}
+.grid-input.date-input{width:136px;}
 .qty-cell{display:flex; gap:6px; align-items:center;}
-select.grid-input{width:auto; max-width:140px;}
+select.grid-input{width:120px;}
+.date-pair{padding:5px 6px;}
 
 .btn-remove-row{background:none; border:none; color:var(--text-faint); font-size:15px; line-height:1; padding:5px 8px; border-radius:6px;}
 .btn-remove-row:hover{color:var(--warn-text); background:var(--warn-soft);}
