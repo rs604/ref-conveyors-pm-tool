@@ -15,8 +15,8 @@
 .ph-stat{text-align:right;}
 .ph-stat-label{font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-faint); font-weight:600;}
 .ph-stat-value{font-family:'Manrope',sans-serif; font-size:20px; font-weight:700; margin-top:4px;}
-.task-no{color:var(--text-faint); font-weight:600; font-size:11.5px;}
-.date-pair{font-size:12px; color:var(--text-muted); white-space:nowrap;}
+.task-no{color:var(--text-faint); font-weight:600; font-size:11.5px; text-align:center;}
+.date-pair{font-size:12px; color:var(--text-muted); white-space:nowrap; padding:6px 8px;}
 .date-pair b{color:var(--text); font-weight:600;}
 .delay-tag{font-size:11px; color:var(--warn-text); font-weight:600;}
 
@@ -27,27 +27,51 @@
 .btn-status.active{border-color:var(--accent); color:var(--accent-text); background:var(--accent-soft);}
 .btn-status.hold.active{border-color:var(--warn-text); color:var(--warn-text); background:var(--warn-soft);}
 
-/* ---- Editable task grid ---- */
+/* ---- Spreadsheet-style task grid ---- */
 .tasks-panel{background:var(--surface); border:1px solid var(--border); border-radius:12px; box-shadow:0 1px 2px rgba(20,24,40,0.03); overflow:hidden;}
-.tasks-scroll{max-height:calc(100vh - 320px); min-height:220px; overflow:auto;}
-.tasks-scroll table{width:max-content; min-width:100%; border-collapse:collapse;}
-.tasks-scroll thead th{position:sticky; top:0; z-index:2; white-space:nowrap;}
+.tasks-scroll{max-height:calc(100vh - 320px); min-height:220px; overflow:auto; position:relative;}
+.tasks-scroll table{table-layout:fixed; border-collapse:collapse; font-size:12.5px;}
+.tasks-scroll thead th{position:sticky; top:0; z-index:3; white-space:nowrap;}
+.tasks-scroll td{padding:0; vertical-align:top;}
 .tasks-add-row{padding:12px 16px; border-top:1px solid var(--border);}
 
-.grid-input{display:block; border:1px solid transparent; background:transparent; font:inherit; color:var(--text); padding:5px 6px; border-radius:6px;}
-.grid-input:hover{border-color:var(--border);}
-.grid-input:focus{outline:none; border-color:var(--accent); background:var(--surface); box-shadow:0 0 0 3px var(--accent-soft);}
-.grid-input.name-input{font-weight:600; font-size:13px; width:200px;}
-.grid-input.desc-input{font-size:11.5px; color:var(--text-faint); margin-top:1px; width:200px;}
-.grid-input.qty-input{width:60px; text-align:right;}
-.grid-input.uom-input{width:64px;}
-.grid-input.date-input{width:136px;}
-.qty-cell{display:flex; gap:6px; align-items:center;}
-select.grid-input{width:120px;}
-.date-pair{padding:5px 6px;}
+.tasks-scroll th:nth-child(1), .tasks-scroll td:nth-child(1){width:42px;}
+.tasks-scroll th:nth-child(2), .tasks-scroll td:nth-child(2){width:180px;}
+.tasks-scroll th:nth-child(3), .tasks-scroll td:nth-child(3){width:180px;}
+.tasks-scroll th:nth-child(4), .tasks-scroll td:nth-child(4){width:64px;}
+.tasks-scroll th:nth-child(5), .tasks-scroll td:nth-child(5){width:84px;}
+.tasks-scroll th:nth-child(6), .tasks-scroll td:nth-child(6){width:150px;}
+.tasks-scroll th:nth-child(7), .tasks-scroll td:nth-child(7){width:126px;}
+.tasks-scroll th:nth-child(8), .tasks-scroll td:nth-child(8){width:126px;}
+.tasks-scroll th:nth-child(9), .tasks-scroll td:nth-child(9){width:150px;}
+.tasks-scroll th:nth-child(10), .tasks-scroll td:nth-child(10){width:64px;}
+.tasks-scroll th:nth-child(11), .tasks-scroll td:nth-child(11){width:104px;}
+.tasks-scroll th:nth-child(12), .tasks-scroll td:nth-child(12){width:38px;}
+
+/* A .cell is the "selected, not editing" state — a plain focusable div.
+   Clicking/arrowing onto it just selects it; typing or Enter/F2/double-click
+   is what switches it into .editing (an <input> appears inside it). This
+   two-state model (rather than a permanently-live <input>) is what lets
+   arrow keys mean "move between cells" while selected but "move the text
+   cursor" while editing, matching Sheets/Excel. */
+.cell{position:relative; min-height:19px; padding:6px 8px; cursor:cell; outline:none; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.cell:focus{box-shadow:inset 0 0 0 2px var(--accent); background:var(--accent-soft); z-index:1;}
+.cell.editing{box-shadow:inset 0 0 0 2px var(--accent); background:var(--surface); white-space:normal; overflow:visible; z-index:4;}
+.cell:empty::before, .cell.combo-cell:empty::before{content:"\2014"; color:var(--text-faint);}
+.num-cell{text-align:right;}
+.combo-cell{padding-right:20px;}
+.combo-caret{position:absolute; right:6px; top:50%; transform:translateY(-50%); font-size:8px; color:var(--text-faint); pointer-events:none;}
+.cell.editing .combo-caret{display:none;}
+
+.cell-input{width:100%; border:none; outline:none; background:transparent; font:inherit; color:var(--text); padding:0; box-sizing:border-box;}
+.combo-list{position:absolute; top:100%; left:-2px; min-width:calc(100% + 4px); max-height:220px; overflow-y:auto; background:var(--surface); border:1px solid var(--border-strong); border-radius:8px; box-shadow:0 10px 28px rgba(20,24,40,0.14); z-index:20; margin-top:3px; padding:4px; white-space:nowrap;}
+.combo-option{padding:6px 10px; border-radius:6px; font-size:12.5px; cursor:pointer;}
+.combo-option.highlighted{background:var(--accent-soft); color:var(--accent-text);}
+.combo-empty{padding:6px 10px; font-size:11.5px; color:var(--text-faint); white-space:normal; max-width:220px;}
 
 .btn-remove-row{background:none; border:none; color:var(--text-faint); font-size:15px; line-height:1; padding:5px 8px; border-radius:6px;}
 .btn-remove-row:hover{color:var(--warn-text); background:var(--warn-soft);}
+.ro-cell{padding:6px 8px;}
 </style>
 </head>
 <body>
@@ -148,39 +172,96 @@ function updateHeaderStats() {
   if (el) el.textContent = `${completed} / ${total}`;
 }
 
-function doerOptionsHtml(selectedId) {
-  return `<option value="">Unassigned</option>` + profilesList.map(p =>
-    `<option value="${p.id}" ${selectedId === p.id ? "selected" : ""}>${escapeHtml(p.full_name)}</option>`
-  ).join("");
+/* =========================================================================
+   Spreadsheet grid engine
+   =========================================================================
+   Every editable field is a `.cell` div (tabindex=0, one per row/column).
+   A cell has two states:
+     - selected (default): shows a plain text display, arrow keys move the
+       active cell, typing/Enter/F2/double-click switches it to...
+     - editing: an <input> (or, for Unit/Doer/Status, a searchable dropdown)
+       replaces the display; arrow keys move the text cursor / filter the
+       list instead of the active cell, and Enter/Tab/Escape commit or
+       cancel and return to selected mode — this mirrors Google Sheets.
+   ========================================================================= */
+
+const COLUMNS = [
+  { field: "item_name", type: "text" },
+  { field: "task_description", type: "text" },
+  { field: "qty", type: "number" },
+  { field: "uom", type: "combo-uom" },
+  { field: "doer_id", type: "combo-doer" },
+  { field: "planned_start_date", type: "date" },
+  { field: "planned_finish_date", type: "date" },
+  { field: "status", type: "combo-status" },
+];
+
+const UOM_OPTIONS = ["Nos", "Pcs", "Set", "Kg", "Mtr", "MM", "Ltr", "Sqm", "Roll", "Box", "Pair", "RM"]
+  .map(u => ({ value: u, label: u }));
+
+const STATUS_OPTIONS = [
+  { value: "pending", label: "Pending" },
+  { value: "in_progress", label: "Started" },
+  { value: "completed", label: "Completed" },
+];
+const STATUS_LABEL = Object.fromEntries(STATUS_OPTIONS.map(o => [o.value, o.label]));
+
+function doerOptions() {
+  return [{ value: "", label: "Unassigned" }, ...profilesList.map(p => ({ value: p.id, label: p.full_name }))];
 }
 
-function taskRowHtml(t) {
+function optionsForType(type) {
+  if (type === "combo-uom") return UOM_OPTIONS;
+  if (type === "combo-status") return STATUS_OPTIONS;
+  if (type === "combo-doer") return doerOptions();
+  return [];
+}
+
+function labelFor(type, value) {
+  if (type === "combo-status") return STATUS_LABEL[value] || "Pending";
+  if (type === "combo-doer") {
+    if (!value) return "Unassigned";
+    const p = profilesList.find(p => p.id === value);
+    return p ? p.full_name : "Unassigned";
+  }
+  return value || "";
+}
+
+function escapeAttr(str) {
+  return String(str ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function cellHtml(rowIdx, colIdx, t) {
+  const col = COLUMNS[colIdx];
+  const field = col.field;
+  const rawValue = t[field] ?? "";
+  const isCombo = col.type.startsWith("combo");
+  let display = isCombo ? labelFor(col.type, rawValue) : (col.type === "date" ? formatDate(rawValue) : rawValue);
+  if (isCombo && display === "") display = "—"; // caret makes the cell non-empty, so CSS :empty won't add this itself
+  const extraClass = col.type === "number" ? "num-cell" : isCombo ? "combo-cell" : "";
+  const caret = isCombo ? `<span class="combo-caret">&#9662;</span>` : "";
+  return `<div class="cell ${extraClass}" tabindex="0" data-row="${rowIdx}" data-col="${colIdx}" data-id="${t.id}" data-field="${field}" data-type="${col.type}" data-value="${escapeAttr(rawValue)}">${escapeHtml(String(display))}${caret}</div>`;
+}
+
+function taskRowHtml(t, rowIdx) {
   return `
     <tr data-task-row="${t.id}">
-      <td class="task-no">${t.task_no}</td>
-      <td>
-        <input class="grid-input name-input" data-id="${t.id}" data-field="item_name" value="${escapeHtml(t.item_name || "")}">
-        <input class="grid-input desc-input" data-id="${t.id}" data-field="task_description" value="${escapeHtml(t.task_description || "")}" placeholder="Description">
-      </td>
-      <td>
-        <div class="qty-cell">
-          <input type="number" step="any" class="grid-input qty-input" data-id="${t.id}" data-field="qty" value="${t.qty ?? ""}">
-          <input class="grid-input uom-input" data-id="${t.id}" data-field="uom" value="${escapeHtml(t.uom || "")}" placeholder="UOM">
-        </div>
-      </td>
-      <td><select class="grid-input" data-id="${t.id}" data-field="doer_id">${doerOptionsHtml(t.doer_id)}</select></td>
-      <td><input type="date" class="grid-input date-input" data-id="${t.id}" data-field="planned_start_date" value="${t.planned_start_date || ""}"></td>
-      <td><input type="date" class="grid-input date-input" data-id="${t.id}" data-field="planned_finish_date" value="${t.planned_finish_date || ""}"></td>
-      <td class="date-pair actual-cell">${formatDate(t.actual_start_date)} → <b>${formatDate(t.actual_finish_date)}</b></td>
-      <td class="delay-cell">${t.delay_days > 0 ? `<span class="delay-tag">${t.delay_days}d</span>` : "—"}</td>
-      <td>
-        <select class="grid-input status-select" data-id="${t.id}" data-field="status">
-          <option value="pending" ${t.status === "pending" ? "selected" : ""}>Pending</option>
-          <option value="in_progress" ${t.status === "in_progress" ? "selected" : ""}>Started</option>
-          <option value="completed" ${t.status === "completed" ? "selected" : ""}>Completed</option>
-        </select>
-      </td>
-      <td><button type="button" class="btn-remove-row" data-remove-task="${t.id}" title="Remove item">&times;</button></td>
+      <td class="ro-cell task-no">${t.task_no}</td>
+      <td>${cellHtml(rowIdx, 0, t)}</td>
+      <td>${cellHtml(rowIdx, 1, t)}</td>
+      <td>${cellHtml(rowIdx, 2, t)}</td>
+      <td>${cellHtml(rowIdx, 3, t)}</td>
+      <td>${cellHtml(rowIdx, 4, t)}</td>
+      <td>${cellHtml(rowIdx, 5, t)}</td>
+      <td>${cellHtml(rowIdx, 6, t)}</td>
+      <td class="ro-cell date-pair actual-cell">${formatDate(t.actual_start_date)} → <b>${formatDate(t.actual_finish_date)}</b></td>
+      <td class="ro-cell delay-cell">${t.delay_days > 0 ? `<span class="delay-tag">${t.delay_days}d</span>` : "—"}</td>
+      <td>${cellHtml(rowIdx, 7, t)}</td>
+      <td class="ro-cell"><button type="button" class="btn-remove-row" data-remove-task="${t.id}" title="Remove item">&times;</button></td>
     </tr>`;
 }
 
@@ -192,8 +273,8 @@ function renderTasksTable() {
   }
   scroll.innerHTML = `
     <table>
-      <thead><tr><th>No.</th><th>Item</th><th>Qty</th><th>Doer</th><th>Planned Start</th><th>Planned Finish</th><th>Actual</th><th>Delay</th><th>Status</th><th></th></tr></thead>
-      <tbody id="tasks-tbody">${currentTasks.map(taskRowHtml).join("")}</tbody>
+      <thead><tr><th>No.</th><th>Item</th><th>Description</th><th>Qty</th><th>Unit</th><th>Doer</th><th>Planned Start</th><th>Planned Finish</th><th>Actual</th><th>Delay</th><th>Status</th><th></th></tr></thead>
+      <tbody id="tasks-tbody">${currentTasks.map((t, i) => taskRowHtml(t, i)).join("")}</tbody>
     </table>`;
 }
 
@@ -231,21 +312,129 @@ async function handleStatusChange(taskId, newStatus) {
   updateHeaderStats();
 }
 
-async function handleFieldChange(el) {
-  const taskId = el.dataset.id;
-  const field = el.dataset.field;
-  if (!taskId || !field) return;
+// ---- Cell selection / navigation ----
+let editingCell = null;
+
+function cellAt(row, col) {
+  return document.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`);
+}
+function selectCell(cell) {
+  if (cell) cell.focus();
+}
+function moveSelection(cell, dRow, dCol) {
+  const row = parseInt(cell.dataset.row, 10);
+  const col = parseInt(cell.dataset.col, 10);
+  const target = cellAt(row + dRow, col + dCol);
+  if (target) selectCell(target);
+}
+function moveTab(cell, forward) {
+  const row = parseInt(cell.dataset.row, 10);
+  const col = parseInt(cell.dataset.col, 10);
+  const maxCol = COLUMNS.length - 1;
+  let r = row, c = col;
+  if (forward) { if (c < maxCol) c++; else { c = 0; r++; } }
+  else { if (c > 0) c--; else { c = maxCol; r--; } }
+  const target = cellAt(r, c);
+  if (target) selectCell(target);
+}
+
+// ---- Entering / leaving edit mode ----
+function enterEditMode(cell, opts = {}) {
+  if (editingCell === cell) return;
+  if (editingCell) commitEdit(editingCell, null);
+
+  const type = cell.dataset.type;
+  const currentValue = cell.dataset.value || "";
+  cell.classList.add("editing");
+
+  if (type === "text" || type === "number") {
+    const seed = opts.initialChar !== undefined ? opts.initialChar : currentValue;
+    cell.innerHTML = `<input class="cell-input" type="${type === "number" ? "number" : "text"}" ${type === "number" ? 'step="any"' : ""} value="${escapeAttr(seed)}">`;
+    const input = cell.querySelector(".cell-input");
+    input.focus();
+    if (opts.initialChar === undefined) input.select();
+  } else if (type === "date") {
+    cell.innerHTML = `<input class="cell-input" type="date" value="${escapeAttr(currentValue)}">`;
+    cell.querySelector(".cell-input").focus();
+  } else if (type.startsWith("combo")) {
+    const seed = opts.initialChar !== undefined ? opts.initialChar : labelFor(type, currentValue);
+    cell.innerHTML = `<input class="cell-input combo-input" type="text" value="${escapeAttr(seed)}" autocomplete="off"><div class="combo-list"></div>`;
+    const input = cell.querySelector(".cell-input");
+    input.focus();
+    if (opts.initialChar === undefined) input.select();
+    renderComboList(cell, seed, { preserveCurrent: opts.initialChar === undefined });
+  }
+  editingCell = cell;
+}
+
+function renderCellDisplay(cell) {
+  const type = cell.dataset.type;
+  const value = cell.dataset.value || "";
+  const isCombo = type.startsWith("combo");
+  let text = isCombo ? labelFor(type, value) : (type === "date" ? formatDate(value) : value);
+  if (isCombo && text === "") text = "—";
+  const caret = isCombo ? `<span class="combo-caret">&#9662;</span>` : "";
+  cell.innerHTML = `${escapeHtml(String(text))}${caret}`;
+}
+
+function exitEditModeDom(cell) {
+  cell.classList.remove("editing");
+  renderCellDisplay(cell);
+}
+
+function cancelEdit(cell) {
+  if (editingCell !== cell) return;
+  editingCell = null;
+  exitEditModeDom(cell);
+  selectCell(cell);
+}
+
+async function commitEdit(cell, moveDir) {
+  if (editingCell !== cell) return;
+  editingCell = null;
+  const type = cell.dataset.type;
+  const input = cell.querySelector(".cell-input");
+  let raw;
+  if (type === "text") raw = input.value.trim();
+  else if (type === "number") raw = input.value;
+  else if (type === "date") raw = input.value;
+  else if (type.startsWith("combo")) raw = resolveComboValue(cell, type);
+
+  await saveCellValue(cell, type, raw);
+  exitEditModeDom(cell);
+
+  if (moveDir === "down") moveSelection(cell, 1, 0);
+  else if (moveDir === "right") moveTab(cell, true);
+  else if (moveDir === "left") moveTab(cell, false);
+  else selectCell(cell);
+}
+
+async function saveCellValue(cell, type, rawNewValue) {
+  const taskId = cell.dataset.id;
+  const field = cell.dataset.field;
 
   if (field === "status") {
-    await handleStatusChange(taskId, el.value);
+    if (rawNewValue === null) return; // no match / cleared — revert, status can't be blank
+    if (rawNewValue.value !== cell.dataset.value) await handleStatusChange(taskId, rawNewValue.value);
+    cell.dataset.value = rawNewValue.value;
     return;
   }
 
-  let value = el.value;
-  if (field === "qty") value = value === "" ? null : parseFloat(value);
-  else if (field === "doer_id") value = value || null;
-  else if (field === "planned_start_date" || field === "planned_finish_date") value = value || null;
-  else value = value.trim();
+  let value;
+  if (type === "number") value = rawNewValue === "" ? null : parseFloat(rawNewValue);
+  else if (type === "date") value = rawNewValue || null;
+  else if (type.startsWith("combo")) {
+    if (rawNewValue === null) return; // doer must resolve to a real person or Unassigned — revert if not
+    value = rawNewValue.value || null;
+  } else value = rawNewValue;
+
+  const prev = currentTasks.find(t => t.id === taskId)?.[field] ?? null;
+  const prevCompare = prev === null || prev === undefined ? "" : String(prev);
+  const newCompare = value === null || value === undefined ? "" : String(value);
+  if (prevCompare === newCompare) {
+    cell.dataset.value = value ?? "";
+    return;
+  }
 
   const { data: updated, error } = await supabaseClient
     .from("job_tasks").update({ [field]: value }).eq("id", taskId).select().single();
@@ -254,8 +443,167 @@ async function handleFieldChange(el) {
     return;
   }
   patchTaskInMemory(updated);
+  cell.dataset.value = updated[field] ?? "";
   updateRowComputedCells(updated);
 }
+
+async function clearCell(cell) {
+  const type = cell.dataset.type;
+  if (type === "combo-status") return; // required field, nothing to clear to
+  let raw;
+  if (type === "combo-doer") raw = { value: "", label: "Unassigned" };
+  else if (type === "combo-uom") raw = { value: "", label: "" };
+  else raw = "";
+  await saveCellValue(cell, type, raw);
+  renderCellDisplay(cell);
+}
+
+// ---- Searchable dropdown (Unit / Doer / Status) ----
+function renderComboList(cell, query, opts = {}) {
+  const type = cell.dataset.type;
+  const list = cell.querySelector(".combo-list");
+  if (!list) return;
+  const options = optionsForType(type);
+  const q = (query || "").trim().toLowerCase();
+  const filtered = q ? options.filter(o => o.label.toLowerCase().includes(q)) : options;
+
+  if (!filtered.length) {
+    list.innerHTML = type === "combo-uom"
+      ? `<div class="combo-empty">No matching unit — press Enter to use "${escapeHtml(query)}"</div>`
+      : `<div class="combo-empty">No matches</div>`;
+    return;
+  }
+
+  // Opening a cell that already has a value (click/F2/double-click, no typed
+  // filter yet) highlights that current option — or nothing, if it's unset —
+  // so pressing Enter without typing anything is a true no-op. Once the user
+  // is actively filtering (typed a character), the first match is highlighted
+  // like a normal autocomplete.
+  let highlightIdx = -1;
+  if (opts.preserveCurrent) {
+    const currentValue = cell.dataset.value || "";
+    highlightIdx = filtered.findIndex(o => String(o.value) === String(currentValue));
+  } else if (q) {
+    highlightIdx = 0;
+  }
+
+  list.innerHTML = filtered.map((o, i) =>
+    `<div class="combo-option${i === highlightIdx ? " highlighted" : ""}" data-value="${escapeAttr(o.value)}">${escapeHtml(o.label)}</div>`
+  ).join("");
+}
+
+function resolveComboValue(cell, type) {
+  const input = cell.querySelector(".cell-input");
+  const list = cell.querySelector(".combo-list");
+  const highlighted = list?.querySelector(".combo-option.highlighted");
+  const options = optionsForType(type);
+
+  if (highlighted) {
+    const val = highlighted.dataset.value;
+    return options.find(o => String(o.value) === val) || { value: val, label: highlighted.textContent };
+  }
+  const typed = input.value.trim();
+  if (typed === "") {
+    if (type === "combo-doer") return { value: "", label: "Unassigned" };
+    if (type === "combo-uom") return { value: "", label: "" };
+    return null;
+  }
+  const exact = options.find(o => o.label.toLowerCase() === typed.toLowerCase());
+  if (exact) return exact;
+  if (type === "combo-uom") return { value: typed, label: typed };
+  return null;
+}
+
+// ---- Wiring ----
+const tasksScroll = document.getElementById("tasks-scroll");
+
+tasksScroll.addEventListener("keydown", (e) => {
+  const cell = e.target.closest(".cell");
+  if (!cell) return;
+  const isEditing = cell.classList.contains("editing");
+
+  if (!isEditing) {
+    switch (e.key) {
+      case "ArrowUp": e.preventDefault(); moveSelection(cell, -1, 0); return;
+      case "ArrowDown": e.preventDefault(); moveSelection(cell, 1, 0); return;
+      case "ArrowLeft": e.preventDefault(); moveSelection(cell, 0, -1); return;
+      case "ArrowRight": e.preventDefault(); moveSelection(cell, 0, 1); return;
+      case "Enter": e.preventDefault(); moveSelection(cell, 1, 0); return;
+      case "Tab": e.preventDefault(); moveTab(cell, !e.shiftKey); return;
+      case "F2": e.preventDefault(); enterEditMode(cell); return;
+      case "Backspace": case "Delete": e.preventDefault(); clearCell(cell); return;
+      default:
+        if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+          e.preventDefault();
+          enterEditMode(cell, { initialChar: e.key });
+        }
+        return;
+    }
+  }
+
+  if (cell.dataset.type.startsWith("combo")) {
+    const list = cell.querySelector(".combo-list");
+    const options = Array.from(list?.querySelectorAll(".combo-option") || []);
+    const highlighted = list?.querySelector(".combo-option.highlighted");
+    const idx = options.indexOf(highlighted);
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      if (!options.length) return;
+      options.forEach(o => o.classList.remove("highlighted"));
+      const nextIdx = e.key === "ArrowDown" ? Math.min(idx + 1, options.length - 1) : Math.max(idx - 1, 0);
+      const next = options[nextIdx] || options[0];
+      next.classList.add("highlighted");
+      next.scrollIntoView({ block: "nearest" });
+      return;
+    }
+    if (e.key === "Enter") { e.preventDefault(); commitEdit(cell, "down"); return; }
+    if (e.key === "Tab") { e.preventDefault(); commitEdit(cell, e.shiftKey ? "left" : "right"); return; }
+    if (e.key === "Escape") { e.preventDefault(); cancelEdit(cell); return; }
+    return; // other keys: let the text input take them (filtering handled by the 'input' listener)
+  }
+
+  // plain text / number / date cell, editing
+  if (e.key === "Enter") { e.preventDefault(); commitEdit(cell, "down"); return; }
+  if (e.key === "Tab") { e.preventDefault(); commitEdit(cell, e.shiftKey ? "left" : "right"); return; }
+  if (e.key === "Escape") { e.preventDefault(); cancelEdit(cell); return; }
+  // ArrowUp/Down/Left/Right fall through untouched — native text-cursor / date-segment behavior
+});
+
+tasksScroll.addEventListener("input", (e) => {
+  if (!e.target.classList.contains("combo-input")) return;
+  renderComboList(e.target.closest(".cell"), e.target.value);
+});
+
+tasksScroll.addEventListener("mousedown", (e) => {
+  const opt = e.target.closest(".combo-option");
+  if (!opt) return;
+  e.preventDefault(); // keep the input from blurring before we act on the click
+  const cell = opt.closest(".cell");
+  cell.querySelectorAll(".combo-option").forEach(o => o.classList.remove("highlighted"));
+  opt.classList.add("highlighted");
+  commitEdit(cell, null);
+});
+
+tasksScroll.addEventListener("click", (e) => {
+  const removeBtn = e.target.closest("[data-remove-task]");
+  if (removeBtn) { removeItem(removeBtn.dataset.removeTask); return; }
+  const cell = e.target.closest(".cell");
+  if (cell && cell.dataset.type.startsWith("combo") && !cell.classList.contains("editing")) {
+    enterEditMode(cell);
+  }
+});
+
+tasksScroll.addEventListener("dblclick", (e) => {
+  const cell = e.target.closest(".cell");
+  if (cell && !cell.classList.contains("editing")) enterEditMode(cell);
+});
+
+tasksScroll.addEventListener("focusout", (e) => {
+  if (!e.target.classList.contains("cell-input")) return;
+  const cell = e.target.closest(".cell");
+  if (!cell || editingCell !== cell) return;
+  commitEdit(cell, null);
+});
 
 async function addItem() {
   const maxNo = currentTasks.reduce((m, t) => Math.max(m, t.task_no || 0), 0);
@@ -273,10 +621,10 @@ async function addItem() {
   if (currentTasks.length === 1) {
     renderTasksTable();
   } else {
-    document.getElementById("tasks-tbody").insertAdjacentHTML("beforeend", taskRowHtml(newTask));
+    document.getElementById("tasks-tbody").insertAdjacentHTML("beforeend", taskRowHtml(newTask, currentTasks.length - 1));
   }
   updateHeaderStats();
-  document.querySelector(`tr[data-task-row="${newTask.id}"] .name-input`)?.focus();
+  cellAt(currentTasks.length - 1, 0)?.focus();
 }
 
 async function removeItem(taskId) {
@@ -287,41 +635,11 @@ async function removeItem(taskId) {
     return;
   }
   currentTasks = currentTasks.filter(t => t.id !== taskId);
-  document.querySelector(`tr[data-task-row="${taskId}"]`)?.remove();
   updateHeaderStats();
-  if (!currentTasks.length) renderTasksTable();
+  renderTasksTable(); // row indices shift, so just re-render cleanly
 }
 
 document.getElementById("add-item-btn").addEventListener("click", addItem);
-
-document.getElementById("tasks-scroll").addEventListener("change", (e) => {
-  if (e.target.classList.contains("grid-input")) handleFieldChange(e.target);
-});
-
-document.getElementById("tasks-scroll").addEventListener("click", (e) => {
-  const btn = e.target.closest("[data-remove-task]");
-  if (btn) removeItem(btn.dataset.removeTask);
-});
-
-// Enter moves to the next editable cell; since inputs are queried in DOM
-// (row-major) order, the cell after the last one in a row is simply the
-// first cell of the next row — no special-casing needed for row wrap.
-document.getElementById("tasks-scroll").addEventListener("keydown", (e) => {
-  if (e.key !== "Enter") return;
-  const el = e.target;
-  if (!el.classList.contains("grid-input")) return;
-  e.preventDefault();
-  const all = Array.from(document.querySelectorAll("#tasks-scroll .grid-input"));
-  const idx = all.indexOf(el);
-  if (idx === -1) return;
-  const next = all[idx + 1];
-  if (next) {
-    next.focus();
-    if (typeof next.select === "function") next.select();
-  } else {
-    el.blur();
-  }
-});
 
 renderSidebar("dashboard");
 (async () => {
