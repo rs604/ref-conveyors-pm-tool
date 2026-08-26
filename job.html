@@ -11,18 +11,42 @@
 .project-header{background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:22px 24px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:flex-start; gap:24px; flex-wrap:wrap;}
 .ph-left h1{font-size:20px; font-weight:700; display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
 .ph-sub{font-size:13px; color:var(--text-muted); margin-top:4px;}
-.ph-stats{display:flex; gap:28px;}
+.ph-stats{display:flex; gap:26px;}
 .ph-stat{text-align:right;}
 .ph-stat-label{font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-faint); font-weight:600;}
 .ph-stat-value{font-family:'Manrope',sans-serif; font-size:20px; font-weight:700; margin-top:4px;}
 .task-no{color:var(--text-faint); font-weight:600; font-size:11.5px;}
-.item-name{font-weight:600; font-size:13px;}
-.item-desc{font-size:11.5px; color:var(--text-faint); margin-top:2px;}
 .date-pair{font-size:12px; color:var(--text-muted); white-space:nowrap;}
 .date-pair b{color:var(--text); font-weight:600;}
 .delay-tag{font-size:11px; color:var(--warn-text); font-weight:600;}
-.reason{font-size:11px; color:var(--text-faint); margin-top:2px; max-width:160px;}
-.btn-mark{border:1.5px solid var(--accent); color:var(--accent-text); background:var(--accent-soft); padding:6px 12px; border-radius:7px; font-size:11.5px; font-weight:600;}
+
+/* ---- Project status controls (header) ---- */
+.project-actions{display:flex; align-items:center; gap:8px; margin-top:12px; flex-wrap:wrap;}
+.btn-status{border:1.5px solid var(--border-strong); background:var(--surface); color:var(--text-muted); padding:6px 13px; border-radius:7px; font-size:11.5px; font-weight:600;}
+.btn-status:hover{background:var(--surface-2);}
+.btn-status.active{border-color:var(--accent); color:var(--accent-text); background:var(--accent-soft);}
+.btn-status.hold.active{border-color:var(--warn-text); color:var(--warn-text); background:var(--warn-soft);}
+
+/* ---- Editable task grid ---- */
+.tasks-panel{background:var(--surface); border:1px solid var(--border); border-radius:12px; box-shadow:0 1px 2px rgba(20,24,40,0.03); overflow:hidden;}
+.tasks-scroll{max-height:calc(100vh - 320px); min-height:220px; overflow:auto;}
+.tasks-scroll table{width:100%; border-collapse:collapse;}
+.tasks-scroll thead th{position:sticky; top:0; z-index:2;}
+.tasks-add-row{padding:12px 16px; border-top:1px solid var(--border);}
+
+.grid-input{display:block; width:100%; border:1px solid transparent; background:transparent; font:inherit; color:var(--text); padding:5px 6px; border-radius:6px;}
+.grid-input:hover{border-color:var(--border);}
+.grid-input:focus{outline:none; border-color:var(--accent); background:var(--surface); box-shadow:0 0 0 3px var(--accent-soft);}
+.grid-input.name-input{font-weight:600; font-size:13px;}
+.grid-input.desc-input{font-size:11.5px; color:var(--text-faint); margin-top:1px;}
+.grid-input.qty-input{width:56px; text-align:right;}
+.grid-input.uom-input{width:60px;}
+.grid-input.date-input{width:124px;}
+.qty-cell{display:flex; gap:6px; align-items:center;}
+select.grid-input{width:auto; max-width:140px;}
+
+.btn-remove-row{background:none; border:none; color:var(--text-faint); font-size:15px; line-height:1; padding:5px 8px; border-radius:6px;}
+.btn-remove-row:hover{color:var(--warn-text); background:var(--warn-soft);}
 </style>
 </head>
 <body>
@@ -38,7 +62,14 @@
     </header>
     <main class="content">
       <div class="project-header" id="project-header"><p class="muted">Loading…</p></div>
-      <div class="table-card" id="tasks-card"></div>
+      <div class="tasks-panel">
+        <div class="tasks-scroll" id="tasks-scroll">
+          <div class="empty-state" id="tasks-loading"><p>Loading…</p></div>
+        </div>
+        <div class="tasks-add-row">
+          <button type="button" class="btn-secondary" id="add-item-btn">+ Add Item</button>
+        </div>
+      </div>
     </main>
   </div>
 </div>
@@ -49,59 +80,247 @@
 <script>
 const jobId = new URLSearchParams(window.location.search).get("id");
 
-async function loadTasks(profileById) {
-  const { data: tasks } = await supabaseClient
-    .from("job_tasks")
-    .select("*")
-    .eq("job_id", jobId)
-    .order("task_no");
+let currentJob = null;
+let currentTasks = [];
+let profilesList = [];
+let supervisorNameById = {};
 
-  const rows = (tasks || []).map(t => {
-    const doer = t.doer_id ? profileById[t.doer_id] : null;
-    const statusPill = t.status === "completed"
-      ? `<span class="status-pill status-completed"><span class="dot"></span>Completed</span>`
-      : t.status === "in_progress"
-        ? `<span class="status-pill status-ontrack"><span class="dot"></span>In Progress</span>`
-        : `<span class="status-pill status-notstarted"><span class="dot"></span>Pending</span>`;
-    const action = t.status === "completed"
-      ? ""
-      : `<button class="btn-mark" onclick="markCompleted('${t.id}')">Mark Completed</button>`;
-    return `
-      <tr>
-        <td class="task-no">${t.task_no}</td>
-        <td><div class="item-name">${escapeHtml(t.item_name)}</div>${t.task_description ? `<div class="item-desc">${escapeHtml(t.task_description)}</div>` : ""}</td>
-        <td>${t.qty ?? "—"} ${escapeHtml(t.uom || "")}</td>
-        <td>${doer ? escapeHtml(doer.full_name) : "—"}</td>
-        <td class="date-pair">${formatDate(t.planned_start_date)} → <b>${formatDate(t.planned_finish_date)}</b></td>
-        <td class="date-pair">${formatDate(t.actual_start_date)} → <b>${formatDate(t.actual_finish_date)}</b></td>
-        <td>${t.delay_days > 0 ? `<span class="delay-tag">${t.delay_days} day${t.delay_days > 1 ? "s" : ""}</span>${t.reason_for_delay ? `<div class="reason">${escapeHtml(t.reason_for_delay)}</div>` : ""}` : "—"}</td>
-        <td>${statusPill}</td>
-        <td>${action}</td>
-      </tr>`;
-  }).join("");
+const PROJECT_STATUS_PILL = {
+  not_started: ["status-notstarted", "Not Started"],
+  in_progress: ["status-ontrack", "In Progress"],
+  on_hold: ["status-delayed", "On Hold"],
+  completed: ["status-completed", "Completed"],
+};
 
-  const card = document.getElementById("tasks-card");
-  if (!tasks || !tasks.length) {
-    card.innerHTML = `<div class="empty-state"><h3>No tasks on this job yet</h3><p>This product type may not have a task template loaded yet.</p></div>`;
+function projectStatusPillHtml(status) {
+  const [cls, label] = PROJECT_STATUS_PILL[status] || PROJECT_STATUS_PILL.not_started;
+  return `<span class="status-pill ${cls}"><span class="dot"></span>${label}</span>`;
+}
+
+function renderHeader() {
+  const job = currentJob;
+  const supervisor = job.supervisor_id ? supervisorNameById[job.supervisor_id] : null;
+  const total = currentTasks.length;
+  const completed = currentTasks.filter(t => t.status === "completed").length;
+
+  document.getElementById("project-header").innerHTML = `
+    <div class="ph-left">
+      <h1>${escapeHtml(job.job_no)} — ${escapeHtml(job.customer_name)} <span class="tag">${escapeHtml(job.product_types?.name || "—")}</span></h1>
+      <div class="ph-sub">${supervisor ? "Supervisor " + escapeHtml(supervisor) : "No supervisor assigned"}</div>
+      <div class="project-actions">
+        ${projectStatusPillHtml(job.project_status)}
+        <button type="button" class="btn-status ${job.project_status === "in_progress" ? "active" : ""}" id="btn-mark-started">Mark Started</button>
+        <button type="button" class="btn-status hold ${job.project_status === "on_hold" ? "active" : ""}" id="btn-on-hold">On Hold</button>
+      </div>
+    </div>
+    <div class="ph-stats">
+      <div class="ph-stat"><div class="ph-stat-label">Planned Start</div><div class="ph-stat-value" style="font-size:15px;">${formatDate(job.planned_start_date)}</div></div>
+      <div class="ph-stat"><div class="ph-stat-label">Target</div><div class="ph-stat-value" style="font-size:15px;">${formatDate(job.target_date)}</div></div>
+      <div class="ph-stat"><div class="ph-stat-label">Actual Start</div><div class="ph-stat-value" style="font-size:15px;">${formatDate(job.actual_start_date)}</div></div>
+      <div class="ph-stat"><div class="ph-stat-label">Completion</div><div class="ph-stat-value" id="completion-stat">${completed} / ${total}</div></div>
+    </div>
+  `;
+
+  document.getElementById("btn-mark-started").addEventListener("click", () => updateProjectStatus("in_progress"));
+  document.getElementById("btn-on-hold").addEventListener("click", () => updateProjectStatus("on_hold"));
+}
+
+async function updateProjectStatus(status) {
+  const { data: updated, error } = await supabaseClient
+    .from("jobs")
+    .update({ project_status: status })
+    .eq("id", jobId)
+    .select("*, product_types(name)")
+    .single();
+  if (error) {
+    alert("Couldn't update project status: " + error.message);
     return;
   }
-  card.innerHTML = `
+  currentJob = updated;
+  renderHeader();
+}
+
+function updateHeaderStats() {
+  const total = currentTasks.length;
+  const completed = currentTasks.filter(t => t.status === "completed").length;
+  const el = document.getElementById("completion-stat");
+  if (el) el.textContent = `${completed} / ${total}`;
+}
+
+function doerOptionsHtml(selectedId) {
+  return `<option value="">Unassigned</option>` + profilesList.map(p =>
+    `<option value="${p.id}" ${selectedId === p.id ? "selected" : ""}>${escapeHtml(p.full_name)}</option>`
+  ).join("");
+}
+
+function taskRowHtml(t) {
+  return `
+    <tr data-task-row="${t.id}">
+      <td class="task-no">${t.task_no}</td>
+      <td>
+        <input class="grid-input name-input" data-id="${t.id}" data-field="item_name" value="${escapeHtml(t.item_name || "")}">
+        <input class="grid-input desc-input" data-id="${t.id}" data-field="task_description" value="${escapeHtml(t.task_description || "")}" placeholder="Description">
+      </td>
+      <td>
+        <div class="qty-cell">
+          <input type="number" step="any" class="grid-input qty-input" data-id="${t.id}" data-field="qty" value="${t.qty ?? ""}">
+          <input class="grid-input uom-input" data-id="${t.id}" data-field="uom" value="${escapeHtml(t.uom || "")}" placeholder="UOM">
+        </div>
+      </td>
+      <td><select class="grid-input" data-id="${t.id}" data-field="doer_id">${doerOptionsHtml(t.doer_id)}</select></td>
+      <td><input type="date" class="grid-input date-input" data-id="${t.id}" data-field="planned_start_date" value="${t.planned_start_date || ""}"></td>
+      <td><input type="date" class="grid-input date-input" data-id="${t.id}" data-field="planned_finish_date" value="${t.planned_finish_date || ""}"></td>
+      <td class="date-pair actual-cell">${formatDate(t.actual_start_date)} → <b>${formatDate(t.actual_finish_date)}</b></td>
+      <td class="delay-cell">${t.delay_days > 0 ? `<span class="delay-tag">${t.delay_days}d</span>` : "—"}</td>
+      <td>
+        <select class="grid-input status-select" data-id="${t.id}" data-field="status">
+          <option value="pending" ${t.status === "pending" ? "selected" : ""}>Pending</option>
+          <option value="in_progress" ${t.status === "in_progress" ? "selected" : ""}>Started</option>
+          <option value="completed" ${t.status === "completed" ? "selected" : ""}>Completed</option>
+        </select>
+      </td>
+      <td><button type="button" class="btn-remove-row" data-remove-task="${t.id}" title="Remove item">&times;</button></td>
+    </tr>`;
+}
+
+function renderTasksTable() {
+  const scroll = document.getElementById("tasks-scroll");
+  if (!currentTasks.length) {
+    scroll.innerHTML = `<div class="empty-state"><h3>No tasks on this job yet</h3><p>Use "+ Add Item" below to add the first one.</p></div>`;
+    return;
+  }
+  scroll.innerHTML = `
     <table>
-      <thead><tr><th>No.</th><th>Item</th><th>Qty</th><th>Doer</th><th>Planned</th><th>Actual</th><th>Delay</th><th>Status</th><th></th></tr></thead>
-      <tbody>${rows}</tbody>
+      <thead><tr><th>No.</th><th>Item</th><th>Qty</th><th>Doer</th><th>Planned Start</th><th>Planned Finish</th><th>Actual</th><th>Delay</th><th>Status</th><th></th></tr></thead>
+      <tbody id="tasks-tbody">${currentTasks.map(taskRowHtml).join("")}</tbody>
     </table>`;
 }
 
-async function markCompleted(taskId) {
-  const today = localDateStr();
-  const { data: current } = await supabaseClient.from("job_tasks").select("actual_start_date").eq("id", taskId).single();
-  await supabaseClient.from("job_tasks").update({
-    status: "completed",
-    actual_start_date: current?.actual_start_date || today,
-    actual_finish_date: today,
-  }).eq("id", taskId);
-  location.reload();
+function patchTaskInMemory(updated) {
+  const idx = currentTasks.findIndex(t => t.id === updated.id);
+  if (idx !== -1) currentTasks[idx] = updated;
 }
+
+function updateRowComputedCells(t) {
+  const row = document.querySelector(`tr[data-task-row="${t.id}"]`);
+  if (!row) return;
+  const actualCell = row.querySelector(".actual-cell");
+  if (actualCell) actualCell.innerHTML = `${formatDate(t.actual_start_date)} → <b>${formatDate(t.actual_finish_date)}</b>`;
+  const delayCell = row.querySelector(".delay-cell");
+  if (delayCell) delayCell.innerHTML = t.delay_days > 0 ? `<span class="delay-tag">${t.delay_days}d</span>` : "—";
+}
+
+async function handleStatusChange(taskId, newStatus) {
+  const cur = currentTasks.find(t => t.id === taskId);
+  const patch = { status: newStatus };
+  if (newStatus === "in_progress" && !cur?.actual_start_date) {
+    patch.actual_start_date = localDateStr();
+  } else if (newStatus === "completed") {
+    if (!cur?.actual_start_date) patch.actual_start_date = localDateStr();
+    if (!cur?.actual_finish_date) patch.actual_finish_date = localDateStr();
+  }
+  const { data: updated, error } = await supabaseClient
+    .from("job_tasks").update(patch).eq("id", taskId).select().single();
+  if (error) {
+    alert("Couldn't update status: " + error.message);
+    return;
+  }
+  patchTaskInMemory(updated);
+  updateRowComputedCells(updated);
+  updateHeaderStats();
+}
+
+async function handleFieldChange(el) {
+  const taskId = el.dataset.id;
+  const field = el.dataset.field;
+  if (!taskId || !field) return;
+
+  if (field === "status") {
+    await handleStatusChange(taskId, el.value);
+    return;
+  }
+
+  let value = el.value;
+  if (field === "qty") value = value === "" ? null : parseFloat(value);
+  else if (field === "doer_id") value = value || null;
+  else if (field === "planned_start_date" || field === "planned_finish_date") value = value || null;
+  else value = value.trim();
+
+  const { data: updated, error } = await supabaseClient
+    .from("job_tasks").update({ [field]: value }).eq("id", taskId).select().single();
+  if (error) {
+    alert("Couldn't save: " + error.message);
+    return;
+  }
+  patchTaskInMemory(updated);
+  updateRowComputedCells(updated);
+}
+
+async function addItem() {
+  const maxNo = currentTasks.reduce((m, t) => Math.max(m, t.task_no || 0), 0);
+  const { data: newTask, error } = await supabaseClient.from("job_tasks").insert({
+    job_id: jobId,
+    task_no: maxNo + 1,
+    item_name: "New Item",
+    status: "pending",
+  }).select().single();
+  if (error) {
+    alert("Couldn't add item: " + error.message);
+    return;
+  }
+  currentTasks.push(newTask);
+  if (currentTasks.length === 1) {
+    renderTasksTable();
+  } else {
+    document.getElementById("tasks-tbody").insertAdjacentHTML("beforeend", taskRowHtml(newTask));
+  }
+  updateHeaderStats();
+  document.querySelector(`tr[data-task-row="${newTask.id}"] .name-input`)?.focus();
+}
+
+async function removeItem(taskId) {
+  if (!confirm("Remove this item from the job?")) return;
+  const { error } = await supabaseClient.from("job_tasks").delete().eq("id", taskId);
+  if (error) {
+    alert("Couldn't remove: " + error.message);
+    return;
+  }
+  currentTasks = currentTasks.filter(t => t.id !== taskId);
+  document.querySelector(`tr[data-task-row="${taskId}"]`)?.remove();
+  updateHeaderStats();
+  if (!currentTasks.length) renderTasksTable();
+}
+
+document.getElementById("add-item-btn").addEventListener("click", addItem);
+
+document.getElementById("tasks-scroll").addEventListener("change", (e) => {
+  if (e.target.classList.contains("grid-input")) handleFieldChange(e.target);
+});
+
+document.getElementById("tasks-scroll").addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-remove-task]");
+  if (btn) removeItem(btn.dataset.removeTask);
+});
+
+// Enter moves to the next editable cell; since inputs are queried in DOM
+// (row-major) order, the cell after the last one in a row is simply the
+// first cell of the next row — no special-casing needed for row wrap.
+document.getElementById("tasks-scroll").addEventListener("keydown", (e) => {
+  if (e.key !== "Enter") return;
+  const el = e.target;
+  if (!el.classList.contains("grid-input")) return;
+  e.preventDefault();
+  const all = Array.from(document.querySelectorAll("#tasks-scroll .grid-input"));
+  const idx = all.indexOf(el);
+  if (idx === -1) return;
+  const next = all[idx + 1];
+  if (next) {
+    next.focus();
+    if (typeof next.select === "function") next.select();
+  } else {
+    el.blur();
+  }
+});
 
 renderSidebar("dashboard");
 (async () => {
@@ -114,10 +333,11 @@ renderSidebar("dashboard");
     return;
   }
 
-  const [{ data: job, error }, { data: profiles }, { data: supervisors }] = await Promise.all([
+  const [{ data: job, error }, { data: profiles }, { data: supervisors }, { data: tasks }] = await Promise.all([
     supabaseClient.from("jobs").select("*, product_types(name)").eq("id", jobId).single(),
     supabaseClient.from("profiles").select("id, full_name"),
     supabaseClient.from("supervisors").select("id, name"),
+    supabaseClient.from("job_tasks").select("*").eq("job_id", jobId).order("task_no"),
   ]);
 
   if (error || !job) {
@@ -125,30 +345,16 @@ renderSidebar("dashboard");
     return;
   }
 
-  const profileById = Object.fromEntries((profiles || []).map(p => [p.id, p]));
-  const supervisorById = Object.fromEntries((supervisors || []).map(s => [s.id, s]));
-  const supervisor = job.supervisor_id ? supervisorById[job.supervisor_id] : null;
+  currentJob = job;
+  profilesList = profiles || [];
+  supervisorNameById = Object.fromEntries((supervisors || []).map(s => [s.id, s.name]));
+  currentTasks = tasks || [];
 
   document.getElementById("crumb-job").textContent = job.job_no;
   document.title = `${job.job_no} — Ref Conveyors Project Tracker`;
 
-  const { data: tasks } = await supabaseClient.from("job_tasks").select("status").eq("job_id", jobId);
-  const total = (tasks || []).length;
-  const completed = (tasks || []).filter(t => t.status === "completed").length;
-
-  document.getElementById("project-header").innerHTML = `
-    <div class="ph-left">
-      <h1>${escapeHtml(job.job_no)} — ${escapeHtml(job.customer_name)} <span class="tag">${escapeHtml(job.product_types?.name || "—")}</span></h1>
-      <div class="ph-sub">${supervisor ? "Supervisor " + escapeHtml(supervisor.name) : "No supervisor assigned"}</div>
-    </div>
-    <div class="ph-stats">
-      <div class="ph-stat"><div class="ph-stat-label">Planned Start</div><div class="ph-stat-value" style="font-size:15px;">${formatDate(job.planned_start_date)}</div></div>
-      <div class="ph-stat"><div class="ph-stat-label">Actual Start</div><div class="ph-stat-value" style="font-size:15px;">${formatDate(job.actual_start_date)}</div></div>
-      <div class="ph-stat"><div class="ph-stat-label">Completion</div><div class="ph-stat-value">${completed} / ${total}</div></div>
-    </div>
-  `;
-
-  await loadTasks(profileById);
+  renderHeader();
+  renderTasksTable();
 })();
 </script>
 </body>

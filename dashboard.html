@@ -63,6 +63,10 @@
             <label for="planned_start_date">Planned Start Date</label>
             <input id="planned_start_date" type="date" required>
           </div>
+          <div class="field">
+            <label for="target_date">Target Date</label>
+            <input id="target_date" type="date">
+          </div>
         </div>
         <div id="template-note" class="template-note"></div>
         <div class="modal-actions">
@@ -157,6 +161,7 @@ document.getElementById("new-job-form").addEventListener("submit", async (e) => 
   const product_type_id = document.getElementById("product_type_id").value;
   const supervisor_id = document.getElementById("supervisor_id").value || null;
   const planned_start_date = document.getElementById("planned_start_date").value;
+  const target_date = document.getElementById("target_date").value;
   const errorBox = document.getElementById("modal-error-box");
   const btn = document.getElementById("submit-new-job");
   errorBox.style.display = "none";
@@ -190,6 +195,7 @@ document.getElementById("new-job-form").addEventListener("submit", async (e) => 
     product_type_id,
     supervisor_id,
     planned_start_date: planned_start_date || null,
+    target_date: target_date || null,
     created_by: session.user.id,
   }).select().single();
 

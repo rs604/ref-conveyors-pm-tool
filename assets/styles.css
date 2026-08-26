@@ -94,10 +94,11 @@ input,select{font-family:inherit;}
 .stat-value{font-family:'Manrope',sans-serif; font-size:26px; font-weight:700; margin-top:6px;}
 .stat-success{color:var(--success-text);}
 .stat-warn{color:var(--warn-text);}
-/* Sits in the stats-row grid's 4th column (grid items stretch to the row's
-   height by default), so it lines up exactly with the stat cards instead of
-   floating above them on its own line. */
-.btn-new-project{justify-content:center; font-size:13.5px; grid-column:4;}
+/* Sits in the stats-row grid's 4th column so it lines up exactly with the
+   stat cards instead of floating above them on its own line. align-self
+   overrides the grid's default row-stretch so the button stays its own
+   natural (small) size instead of stretching to the stat cards' height. */
+.btn-new-project{justify-content:center; align-self:center; font-size:12.5px; padding:7px 14px; grid-column:4;}
 
 /* ---- Modal ---- */
 .modal-overlay{position:fixed; inset:0; background:rgba(15,20,32,0.5); display:flex; align-items:center; justify-content:center; padding:20px; z-index:100;}
