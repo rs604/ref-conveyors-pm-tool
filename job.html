@@ -8,39 +8,75 @@
 <style>
 .crumb{font-size:12.5px; color:var(--text-faint); margin-bottom:10px;}
 .crumb b{color:var(--text); font-weight:600;}
-.project-header{background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:22px 24px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:flex-start; gap:24px; flex-wrap:wrap;}
-.ph-left h1{font-size:20px; font-weight:700; display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
-.ph-sub{font-size:13px; color:var(--text-muted); margin-top:4px;}
-.ph-stats{display:flex; gap:26px;}
-.ph-stat{text-align:right;}
-.ph-stat-label{font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-faint); font-weight:600;}
-.ph-stat-value{font-family:'Manrope',sans-serif; font-size:20px; font-weight:700; margin-top:4px;}
+
+/* ---- Consolidated page header (title + tag / status + actions / user) ---- */
+.page-header{display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:16px;}
+.ph-left{min-width:0;}
+.ph-left h1{font-size:17px; font-weight:700; display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:0;}
+.ph-middle{justify-self:center; display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+#header-user-root{justify-self:end;}
+
+/* ---- Slim stats strip (replaces the old bordered project-header card) ---- */
+.stats-strip{display:flex; align-items:center; gap:26px; padding:8px 28px; border-bottom:1px solid var(--border); background:var(--surface); flex-wrap:wrap;}
+.stat-chip{display:flex; align-items:baseline; gap:6px; white-space:nowrap;}
+.stat-chip-label{font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-faint); font-weight:600;}
+.stat-chip-value{font-family:'Manrope',sans-serif; font-size:13px; font-weight:700; color:var(--text);}
+.stat-chip-supervisor{margin-left:auto; font-size:12px; color:var(--text-muted); white-space:nowrap;}
+
 .task-no{color:var(--text-faint); font-weight:600; font-size:11.5px; text-align:center;}
-.date-pair{font-size:12px; color:var(--text-muted); white-space:nowrap; padding:6px 8px;}
+.date-pair{font-size:12px; color:var(--text-muted); white-space:normal; padding:6px 8px;}
 .date-pair b{color:var(--text); font-weight:600;}
 .delay-tag{font-size:11px; color:var(--warn-text); font-weight:600;}
 
-/* ---- Project status controls (header) ---- */
-.project-actions{display:flex; align-items:center; gap:8px; margin-top:12px; flex-wrap:wrap;}
+/* ---- Project status controls (now in the page header's middle column) ---- */
 .btn-status{border:1.5px solid var(--border-strong); background:var(--surface); color:var(--text-muted); padding:6px 13px; border-radius:7px; font-size:11.5px; font-weight:600;}
 .btn-status:hover{background:var(--surface-2);}
 .btn-status.active{border-color:var(--accent); color:var(--accent-text); background:var(--accent-soft);}
 .btn-status.hold.active{border-color:var(--warn-text); color:var(--warn-text); background:var(--warn-soft);}
 
+/* ---- Content runs edge-to-edge on this page; the grid card itself keeps
+   its border/radius, it just no longer floats with page padding around it. ---- */
+.content-flush{padding:0 !important;}
+
 /* ---- Spreadsheet-style task grid ---- */
 .tasks-toolbar{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:9px 14px; border-bottom:1px solid var(--border); background:var(--surface-2);}
 .tasks-toolbar-left{display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-muted);}
 .tasks-toolbar select{font-size:12px; padding:4px 8px; border-radius:6px; border:1px solid var(--border-strong); background:var(--surface); color:var(--text);}
-.tasks-toolbar .hint{font-size:11px; color:var(--text-faint);}
-.tasks-panel{background:var(--surface); border:1px solid var(--border); border-radius:12px; box-shadow:0 1px 2px rgba(20,24,40,0.03); overflow:hidden;}
-.tasks-scroll{max-height:calc(100vh - 360px); min-height:220px; overflow:auto; position:relative; user-select:none;}
+.toolbar-collapse-btn{background:none; border:none; color:var(--text-faint); font-size:10px; padding:5px 9px; border-radius:6px;}
+.toolbar-collapse-btn:hover{background:var(--surface); color:var(--text);}
+.toolbar-collapsed-strip{padding:3px 14px; border-bottom:1px solid var(--border); background:var(--surface-2);}
+.toolbar-collapsed-strip button{background:none; border:none; color:var(--text-faint); font-size:11px; padding:3px 7px; border-radius:5px;}
+.toolbar-collapsed-strip button:hover{background:var(--surface); color:var(--text);}
+.tasks-panel{background:var(--surface); border:1px solid var(--border); box-shadow:0 1px 2px rgba(20,24,40,0.03); overflow:hidden;}
+.tasks-scroll{max-height:calc(100vh - 300px); min-height:220px; overflow:auto; position:relative; user-select:none;
+  scrollbar-width:thin; scrollbar-color:var(--border-strong) var(--surface-2);
+  /* Own compositing layer: without this, Chromium can lag repainting
+     position:sticky cells when the scroll direction reverses (frozen
+     columns "jump" back into place instead of progressively revealing
+     what was hidden underneath). Forcing a layer here makes sticky offsets
+     recompute every frame instead of only when scrolling settles. */
+  transform:translateZ(0);
+}
 .tasks-scroll .cell.editing, .tasks-scroll .cell.editing *{user-select:text;}
+.tasks-scroll::-webkit-scrollbar{width:10px; height:10px;}
+.tasks-scroll::-webkit-scrollbar-track{background:var(--surface-2);}
+.tasks-scroll::-webkit-scrollbar-thumb{background:var(--border-strong); border-radius:6px; border:2px solid var(--surface-2);}
+.tasks-scroll::-webkit-scrollbar-thumb:hover{background:var(--accent);}
 .tasks-scroll table{table-layout:fixed; border-collapse:separate; border-spacing:0; font-size:12.5px;}
-.tasks-scroll thead th{position:sticky; top:0; z-index:5; white-space:nowrap; border-right:1px solid var(--border); border-bottom:1px solid var(--border-strong);}
+.tasks-scroll thead th{position:relative; position:sticky; top:0; z-index:5; white-space:nowrap; border-right:1px solid var(--border); border-bottom:1px solid var(--border-strong); background:var(--surface-2);}
 .tasks-scroll thead th:last-child{border-right:none;}
 .tasks-scroll td{padding:0; vertical-align:top; border-right:1px solid var(--border);}
 .tasks-scroll td:last-child{border-right:none;}
-.tasks-add-row{padding:12px 16px; border-top:1px solid var(--border);}
+/* Zebra striping (Sheets-style). Higher specificity than the dynamic
+   freeze/colwidth rules below on purpose — an even row's cells (frozen or
+   not) should show the tint; both colors are fully opaque so frozen-column
+   opacity is unaffected either way. */
+.tasks-scroll tbody tr:nth-child(even) td{background:var(--surface-2);}
+.tasks-scroll tbody tr:nth-child(odd) td{background:var(--surface);}
+
+/* ---- Column resize handles ---- */
+.col-resize-handle{position:absolute; top:0; right:-3px; width:6px; height:100%; cursor:col-resize; z-index:8;}
+.col-resize-handle:hover{background:var(--accent);}
 
 .tasks-scroll th:nth-child(1), .tasks-scroll td:nth-child(1){width:42px;}
 .tasks-scroll th:nth-child(2), .tasks-scroll td:nth-child(2){width:180px;}
@@ -53,14 +89,16 @@
 .tasks-scroll th:nth-child(9), .tasks-scroll td:nth-child(9){width:150px;}
 .tasks-scroll th:nth-child(10), .tasks-scroll td:nth-child(10){width:64px;}
 .tasks-scroll th:nth-child(11), .tasks-scroll td:nth-child(11){width:104px;}
-.tasks-scroll th:nth-child(12), .tasks-scroll td:nth-child(12){width:38px;}
+/* The above are just load-time defaults — applyColWidths() (see JS) always
+   regenerates a <style id="colwidth-style"> with the actual (possibly
+   user-resized, localStorage-persisted) widths immediately on page load,
+   so these never visibly apply past the very first paint. */
 
-/* Freeze-columns: left offsets match the cumulative widths above (42 / 222 / 402 / 466). A
-   dynamically-generated <style id="freeze-style"> (see JS) turns individual nth-child
-   columns sticky based on the toolbar selection; these are just the shared building blocks. */
-.frozen-col{position:sticky; z-index:4; background:var(--surface);}
-.frozen-col.freeze-edge{box-shadow:2px 0 6px rgba(20,24,40,0.10);}
-thead .frozen-col{z-index:6;}
+/* Freeze-columns: a dynamically-generated <style id="freeze-style"> (see JS)
+   turns individual nth-child columns sticky based on the toolbar selection,
+   with an explicit opaque background-color (not just `background`, and not
+   relying on inheritance) plus its own compositing layer so text from
+   scrolled-under columns never bleeds through at the sticky boundary. */
 
 /* A .cell is the "selected, not editing" state — a plain focusable div.
    Clicking/arrowing onto it just selects it; typing or Enter/F2/double-click
@@ -68,18 +106,18 @@ thead .frozen-col{z-index:6;}
    two-state model (rather than a permanently-live <input>) is what lets
    arrow keys mean "move between cells" while selected but "move the text
    cursor" while editing, matching Sheets/Excel. */
-.cell{position:relative; box-sizing:border-box; min-height:15px; padding:4px 7px; cursor:cell; outline:none; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; border:1px solid transparent;}
+.cell{position:relative; box-sizing:border-box; min-height:15px; padding:4px 7px; cursor:cell; outline:none; color:var(--text); white-space:normal; overflow:visible; overflow-wrap:anywhere; border:1px solid transparent;}
 .cell:hover:not(.editing):not(:focus){background:var(--surface-2);}
 .cell:focus{box-shadow:inset 0 0 0 2px var(--accent); background:var(--accent-soft); z-index:2;}
 .cell.editing{box-shadow:inset 0 0 0 2px var(--accent); background:var(--surface); white-space:normal; overflow:visible; z-index:6;}
 .cell:empty::before, .cell.combo-cell:empty::before{content:"\2014"; color:var(--text-faint);}
 .num-cell{text-align:right;}
 .combo-cell{padding-right:20px;}
-.combo-caret{position:absolute; right:6px; top:50%; transform:translateY(-50%); font-size:8px; color:var(--text-faint); pointer-events:none;}
+.combo-caret{position:absolute; right:6px; top:8px; font-size:8px; color:var(--text-faint); pointer-events:none;}
 .cell.editing .combo-caret{display:none;}
 
 /* ---- Read-only cells ---- */
-.ro-cell{padding:4px 7px; background:var(--surface-2); color:var(--text-faint);}
+.ro-cell{padding:4px 7px; color:var(--text-faint);}
 
 /* ---- Validation error state ---- */
 .cell.cell-error{box-shadow:inset 0 0 0 2px var(--warn-text, #c0392b); background:var(--warn-soft, #fdecea); z-index:3;}
@@ -105,17 +143,24 @@ thead .frozen-col{z-index:6;}
 .combo-option.highlighted{background:var(--accent-soft); color:var(--accent-text);}
 .combo-empty{padding:6px 10px; font-size:11.5px; color:var(--text-faint); white-space:normal; max-width:220px;}
 
-.btn-remove-row{background:none; border:none; color:var(--text-faint); font-size:15px; line-height:1; padding:5px 8px; border-radius:6px;}
-.btn-remove-row:hover{color:var(--warn-text); background:var(--warn-soft);}
-
 /* ---- Right-click row context menu ---- */
 .ctx-menu{position:fixed; background:var(--surface); border:1px solid var(--border-strong); border-radius:8px; box-shadow:0 10px 28px rgba(20,24,40,0.16); padding:4px; z-index:100; min-width:170px;}
 .ctx-menu button{display:block; width:100%; text-align:left; padding:7px 12px; font-size:12.5px; border-radius:6px; background:none; border:none; color:var(--text); cursor:pointer;}
 .ctx-menu button:hover{background:var(--surface-2);}
+.ctx-menu button.ctx-danger{color:var(--warn-text);}
+.ctx-menu button.ctx-danger:hover{background:var(--warn-soft);}
+.ctx-menu-sep{height:1px; background:var(--border); margin:4px 2px;}
 
 /* ---- Toast (paste/fill-down feedback) ---- */
 .grid-toast{position:fixed; bottom:22px; left:50%; transform:translateX(-50%); background:var(--text); color:var(--surface); padding:9px 18px; border-radius:8px; font-size:12.5px; box-shadow:0 8px 24px rgba(0,0,0,0.22); z-index:200; opacity:0; transition:opacity .2s;}
 .grid-toast.show{opacity:1;}
+
+/* ---- Keyboard shortcuts modal ---- */
+.shortcuts-table{width:100%; border-collapse:collapse;}
+.shortcuts-table td{padding:8px 6px; border-bottom:1px solid var(--border); font-size:12.5px; vertical-align:middle;}
+.shortcuts-table tr:last-child td{border-bottom:none;}
+.shortcuts-table td:first-child{white-space:nowrap; width:1%; padding-right:16px;}
+kbd{background:var(--surface-2); border:1px solid var(--border-strong); border-bottom-width:2px; border-radius:5px; padding:2px 7px; font-family:ui-monospace, SFMono-Regular, monospace; font-size:11.5px; color:var(--text);}
 </style>
 </head>
 <body>
@@ -123,16 +168,16 @@ thead .frozen-col{z-index:6;}
   <div id="sidebar-root"></div>
   <div class="main-area">
     <header class="page-header">
-      <div class="ph-titles">
-        <h1 id="crumb-job">Job Detail</h1>
-        <p class="muted">Projects / job detail</p>
+      <div class="ph-left">
+        <h1 id="ph-title">Job Detail</h1>
       </div>
+      <div class="ph-middle" id="ph-middle"></div>
       <div id="header-user-root"></div>
     </header>
-    <main class="content">
-      <div class="project-header" id="project-header"><p class="muted">Loading…</p></div>
+    <div class="stats-strip" id="stats-strip"><span class="muted">Loading…</span></div>
+    <main class="content content-flush">
       <div class="tasks-panel">
-        <div class="tasks-toolbar">
+        <div class="tasks-toolbar" id="tasks-toolbar">
           <div class="tasks-toolbar-left">
             <label for="freeze-select">Freeze columns</label>
             <select id="freeze-select">
@@ -142,13 +187,13 @@ thead .frozen-col{z-index:6;}
               <option value="3">First 3</option>
             </select>
           </div>
-          <div class="hint">Enter edits a cell · Enter again saves &amp; moves right · Ctrl+C/V copy-paste a range · Ctrl+D fills down · Right-click a row to insert</div>
+          <button type="button" class="toolbar-collapse-btn" id="toolbar-collapse-btn" title="Collapse toolbar">&#9650; Collapse</button>
+        </div>
+        <div class="toolbar-collapsed-strip" id="toolbar-collapsed-strip" hidden>
+          <button type="button" id="toolbar-expand-btn" title="Show toolbar">&#9660; Toolbar</button>
         </div>
         <div class="tasks-scroll" id="tasks-scroll">
           <div class="empty-state" id="tasks-loading"><p>Loading…</p></div>
-        </div>
-        <div class="tasks-add-row">
-          <button type="button" class="btn-secondary" id="add-item-btn">+ Add Item</button>
         </div>
       </div>
     </main>
@@ -158,8 +203,37 @@ thead .frozen-col{z-index:6;}
 <div class="ctx-menu" id="row-ctx-menu" hidden>
   <button type="button" id="ctx-add-above">Insert row above</button>
   <button type="button" id="ctx-add-below">Insert row below</button>
+  <div class="ctx-menu-sep"></div>
+  <button type="button" class="ctx-danger" id="ctx-delete-row">Delete row</button>
 </div>
 <div class="grid-toast" id="grid-toast"></div>
+
+<div class="modal-overlay" id="shortcuts-modal" hidden>
+  <div class="modal-box" style="max-width:480px;">
+    <div class="modal-head">
+      <h2>Keyboard shortcuts</h2>
+      <button type="button" class="modal-close" id="shortcuts-modal-close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <table class="shortcuts-table">
+        <tbody>
+          <tr><td><kbd>Enter</kbd></td><td>Edit the selected cell; press again to save &amp; move right</td></tr>
+          <tr><td><kbd>Tab</kbd> / <kbd>Shift</kbd>+<kbd>Tab</kbd></td><td>Save and move to the next / previous cell</td></tr>
+          <tr><td>Arrow keys</td><td>Move between cells (or move the text cursor while editing)</td></tr>
+          <tr><td><kbd>Shift</kbd>+Arrow</td><td>Extend the selected range</td></tr>
+          <tr><td>Click + drag</td><td>Select a range of cells</td></tr>
+          <tr><td><kbd>Ctrl</kbd>+<kbd>C</kbd></td><td>Copy the selected cell(s)</td></tr>
+          <tr><td><kbd>Ctrl</kbd>+<kbd>V</kbd></td><td>Paste into the selected cell(s)</td></tr>
+          <tr><td><kbd>Ctrl</kbd>+<kbd>D</kbd></td><td>Fill down from the row above (or the top row of a range)</td></tr>
+          <tr><td><kbd>Delete</kbd> / <kbd>Backspace</kbd></td><td>Clear the selected cell(s)</td></tr>
+          <tr><td><kbd>Esc</kbd></td><td>Cancel editing, or collapse a range to one cell</td></tr>
+          <tr><td>Right-click a row</td><td>Insert a row above/below, or delete the row</td></tr>
+          <tr><td><kbd>Shift</kbd>+<kbd>?</kbd></td><td>Show this list</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="assets/supabase-client.js"></script>
@@ -190,22 +264,21 @@ function renderHeader() {
   const total = currentTasks.length;
   const completed = currentTasks.filter(t => t.status === "completed").length;
 
-  document.getElementById("project-header").innerHTML = `
-    <div class="ph-left">
-      <h1>${escapeHtml(job.job_no)} — ${escapeHtml(job.customer_name)} <span class="tag">${escapeHtml(job.product_types?.name || "—")}</span></h1>
-      <div class="ph-sub">${supervisor ? "Supervisor " + escapeHtml(supervisor) : "No supervisor assigned"}</div>
-      <div class="project-actions">
-        ${projectStatusPillHtml(job.project_status)}
-        <button type="button" class="btn-status ${job.project_status === "in_progress" ? "active" : ""}" id="btn-mark-started">Mark Started</button>
-        <button type="button" class="btn-status hold ${job.project_status === "on_hold" ? "active" : ""}" id="btn-on-hold">On Hold</button>
-      </div>
-    </div>
-    <div class="ph-stats">
-      <div class="ph-stat"><div class="ph-stat-label">Planned Start</div><div class="ph-stat-value" style="font-size:15px;">${formatDate(job.planned_start_date)}</div></div>
-      <div class="ph-stat"><div class="ph-stat-label">Target</div><div class="ph-stat-value" style="font-size:15px;">${formatDate(job.target_date)}</div></div>
-      <div class="ph-stat"><div class="ph-stat-label">Actual Start</div><div class="ph-stat-value" style="font-size:15px;">${formatDate(job.actual_start_date)}</div></div>
-      <div class="ph-stat"><div class="ph-stat-label">Completion</div><div class="ph-stat-value" id="completion-stat">${completed} / ${total}</div></div>
-    </div>
+  document.getElementById("ph-title").innerHTML =
+    `${escapeHtml(job.job_no)} — ${escapeHtml(job.customer_name)} <span class="tag">${escapeHtml(job.product_types?.name || "—")}</span>`;
+
+  document.getElementById("ph-middle").innerHTML = `
+    ${projectStatusPillHtml(job.project_status)}
+    <button type="button" class="btn-status ${job.project_status === "in_progress" ? "active" : ""}" id="btn-mark-started">Mark Started</button>
+    <button type="button" class="btn-status hold ${job.project_status === "on_hold" ? "active" : ""}" id="btn-on-hold">On Hold</button>
+  `;
+
+  document.getElementById("stats-strip").innerHTML = `
+    <div class="stat-chip"><span class="stat-chip-label">Planned Start</span><span class="stat-chip-value">${formatDate(job.planned_start_date)}</span></div>
+    <div class="stat-chip"><span class="stat-chip-label">Target</span><span class="stat-chip-value">${formatDate(job.target_date)}</span></div>
+    <div class="stat-chip"><span class="stat-chip-label">Actual Start</span><span class="stat-chip-value">${formatDate(job.actual_start_date)}</span></div>
+    <div class="stat-chip"><span class="stat-chip-label">Completion</span><span class="stat-chip-value" id="completion-stat">${completed} / ${total}</span></div>
+    <div class="stat-chip-supervisor">${supervisor ? "Supervisor: " + escapeHtml(supervisor) : "No supervisor assigned"}</div>
   `;
 
   document.getElementById("btn-mark-started").addEventListener("click", () => updateProjectStatus("in_progress"));
@@ -306,8 +379,7 @@ function cellHtml(rowIdx, colIdx, t) {
   if (isCombo && display === "") display = "—"; // caret makes the cell non-empty, so CSS :empty won't add this itself
   const extraClass = col.type === "number" ? "num-cell" : isCombo ? "combo-cell" : "";
   const caret = isCombo ? `<span class="combo-caret">&#9662;</span>` : "";
-  const title = display ? ` title="${escapeAttr(display)}"` : "";
-  return `<div class="cell ${extraClass}" tabindex="0" data-row="${rowIdx}" data-col="${colIdx}" data-id="${t.id}" data-field="${field}" data-type="${col.type}" data-value="${escapeAttr(rawValue)}"${title}>${escapeHtml(String(display))}${caret}</div>`;
+  return `<div class="cell ${extraClass}" tabindex="0" data-row="${rowIdx}" data-col="${colIdx}" data-id="${t.id}" data-field="${field}" data-type="${col.type}" data-value="${escapeAttr(rawValue)}">${escapeHtml(String(display))}${caret}</div>`;
 }
 
 function taskRowHtml(t, rowIdx) {
@@ -324,19 +396,46 @@ function taskRowHtml(t, rowIdx) {
       <td class="ro-cell date-pair actual-cell">${formatDate(t.actual_start_date)} → <b>${formatDate(t.actual_finish_date)}</b></td>
       <td class="ro-cell delay-cell">${t.delay_days > 0 ? `<span class="delay-tag">${t.delay_days}d</span>` : "—"}</td>
       <td>${cellHtml(rowIdx, 7, t)}</td>
-      <td class="ro-cell"><button type="button" class="btn-remove-row" data-remove-task="${t.id}" title="Remove item">&times;</button></td>
     </tr>`;
+}
+
+// ---- Header labels + user-resizable column widths (persisted per browser,
+// same pattern as the Freeze-columns setting) ----
+const HEADER_LABELS = ["No.", "Item", "Description", "Qty", "Unit", "Doer", "Planned Start", "Planned Finish", "Actual", "Delay", "Status"];
+const DEFAULT_COL_WIDTHS = [42, 180, 180, 64, 84, 150, 126, 126, 150, 64, 104];
+let colWidths = DEFAULT_COL_WIDTHS.slice();
+(function loadColWidths() {
+  try {
+    const saved = JSON.parse(localStorage.getItem("jobGridColWidths") || "null");
+    if (Array.isArray(saved) && saved.length === DEFAULT_COL_WIDTHS.length) colWidths = saved;
+  } catch (e) { /* ignore malformed storage */ }
+})();
+
+function applyColWidths() {
+  let css = "";
+  colWidths.forEach((w, i) => {
+    css += `.tasks-scroll th:nth-child(${i + 1}), .tasks-scroll td:nth-child(${i + 1}) { width:${w}px; }\n`;
+  });
+  let styleEl = document.getElementById("colwidth-style");
+  if (!styleEl) { styleEl = document.createElement("style"); styleEl.id = "colwidth-style"; document.head.appendChild(styleEl); }
+  styleEl.textContent = css;
+}
+
+function theadRowHtml() {
+  return "<tr>" + HEADER_LABELS.map((label, i) =>
+    `<th>${escapeHtml(label)}<div class="col-resize-handle" data-resize-col="${i + 1}"></div></th>`
+  ).join("") + "</tr>";
 }
 
 function renderTasksTable() {
   const scroll = document.getElementById("tasks-scroll");
   if (!currentTasks.length) {
-    scroll.innerHTML = `<div class="empty-state"><h3>No tasks on this job yet</h3><p>Use "+ Add Item" below to add the first one.</p></div>`;
+    scroll.innerHTML = `<div class="empty-state"><h3>No tasks yet</h3><p>A blank row is added automatically — refresh if you don't see one.</p></div>`;
     return;
   }
   scroll.innerHTML = `
     <table>
-      <thead><tr><th>No.</th><th>Item</th><th>Description</th><th>Qty</th><th>Unit</th><th>Doer</th><th>Planned Start</th><th>Planned Finish</th><th>Actual</th><th>Delay</th><th>Status</th><th></th></tr></thead>
+      <thead>${theadRowHtml()}</thead>
       <tbody id="tasks-tbody">${currentTasks.map((t, i) => taskRowHtml(t, i)).join("")}</tbody>
     </table>`;
 }
@@ -519,7 +618,6 @@ function renderCellDisplay(cell) {
   if (isCombo && text === "") text = "—";
   const caret = isCombo ? `<span class="combo-caret">&#9662;</span>` : "";
   cell.innerHTML = `${escapeHtml(String(text))}${caret}`;
-  if (text) cell.setAttribute("title", text); else cell.removeAttribute("title");
 }
 
 function exitEditModeDom(cell) {
@@ -881,7 +979,35 @@ tasksScroll.addEventListener("scroll", () => {
 
 let dragStartCell = null;
 
+// ---- Column resize (drag a header's right edge, Excel/Sheets-style) ----
+let resizingCol = null, resizeStartX = 0, resizeStartWidth = 0;
+
+document.addEventListener("mousemove", (e) => {
+  if (resizingCol === null) return;
+  const newWidth = Math.max(36, resizeStartWidth + (e.clientX - resizeStartX));
+  colWidths[resizingCol - 1] = newWidth;
+  applyColWidths();
+});
+document.addEventListener("mouseup", () => {
+  if (resizingCol === null) return;
+  resizingCol = null;
+  document.body.style.cursor = "";
+  document.body.style.userSelect = "";
+  try { localStorage.setItem("jobGridColWidths", JSON.stringify(colWidths)); } catch (e) { /* ignore */ }
+});
+
 tasksScroll.addEventListener("mousedown", (e) => {
+  const handle = e.target.closest(".col-resize-handle");
+  if (handle) {
+    e.preventDefault();
+    e.stopPropagation();
+    resizingCol = parseInt(handle.dataset.resizeCol, 10);
+    resizeStartX = e.clientX;
+    resizeStartWidth = colWidths[resizingCol - 1];
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    return;
+  }
   const opt = e.target.closest(".combo-option");
   if (opt) {
     e.preventDefault(); // keep the input from blurring before we act on the click
@@ -928,8 +1054,6 @@ document.addEventListener("mouseup", () => {
 });
 
 tasksScroll.addEventListener("click", (e) => {
-  const removeBtn = e.target.closest("[data-remove-task]");
-  if (removeBtn) { removeItem(removeBtn.dataset.removeTask); return; }
   const cell = e.target.closest(".cell");
   if (!cell) return;
   if (dragMoved) { dragMoved = false; return; } // this click just concluded a drag-select — leave the range as-is
@@ -1098,6 +1222,10 @@ document.getElementById("ctx-add-below").addEventListener("click", () => {
   const id = ctxMenuTaskId; closeCtxMenu();
   if (id) insertRowRelative(id, "below");
 });
+document.getElementById("ctx-delete-row").addEventListener("click", () => {
+  const id = ctxMenuTaskId; closeCtxMenu();
+  if (id) removeItem(id); // removeItem() already confirms before deleting
+});
 
 // Inserting "above"/"below" shifts every task_no from the insertion point on
 // by 1 (a small bulk update — task lists here are short, so this is cheap)
@@ -1132,15 +1260,20 @@ async function insertRowRelative(taskId, position) {
 function applyFreeze(n) {
   n = Math.max(0, Math.min(3, parseInt(n, 10) || 0));
   localStorage.setItem("jobGridFreezeCols", String(n));
-  const widths = [42, 180, 180, 64]; // No. / Item / Description / Qty — matches the nth-child widths above
   let css = "", left = 0;
   for (let i = 1; i <= n; i++) {
-    css += `.tasks-scroll th:nth-child(${i}), .tasks-scroll td:nth-child(${i}) { position:sticky; left:${left}px; z-index:4; background:var(--surface); }\n`;
-    left += widths[i - 1];
+    // Explicit background-color (not just the `background` shorthand) plus
+    // their own compositing layer (translateZ) — without both, Chromium can
+    // show a sliver of the scrolled-under column's text bleeding through the
+    // sticky cell's edge (observed on the Doer column peeking out from under
+    // the frozen block).
+    css += `.tasks-scroll thead th:nth-child(${i}), .tasks-scroll tbody td:nth-child(${i}) { position:sticky; left:${left}px; z-index:4; background-color:var(--surface); transform:translateZ(0); }\n`;
+    css += `.tasks-scroll tbody tr:nth-child(even) td:nth-child(${i}) { background-color:var(--surface-2); }\n`;
+    left += colWidths[i - 1];
   }
   if (n > 0) {
     css += `.tasks-scroll th:nth-child(${n}), .tasks-scroll td:nth-child(${n}) { box-shadow:2px 0 6px rgba(20,24,40,0.10); }\n`;
-    css += `.tasks-scroll thead th:nth-child(-n+${n}) { z-index:6; }\n`;
+    css += `.tasks-scroll thead th:nth-child(-n+${n}) { z-index:6; background-color:var(--surface-2); }\n`;
   }
   let styleEl = document.getElementById("freeze-style");
   if (!styleEl) { styleEl = document.createElement("style"); styleEl.id = "freeze-style"; document.head.appendChild(styleEl); }
@@ -1186,8 +1319,37 @@ async function removeItem(taskId) {
   renderTasksTable(); // row indices shift, so just re-render cleanly
 }
 
-document.getElementById("add-item-btn").addEventListener("click", () => addItem());
 applyFreeze(localStorage.getItem("jobGridFreezeCols") || 0);
+applyColWidths();
+
+// ---- Collapsible toolbar ----
+function setToolbarCollapsed(collapsed) {
+  document.getElementById("tasks-toolbar").hidden = collapsed;
+  document.getElementById("toolbar-collapsed-strip").hidden = !collapsed;
+  try { localStorage.setItem("jobGridToolbarCollapsed", collapsed ? "1" : "0"); } catch (e) { /* ignore */ }
+}
+document.getElementById("toolbar-collapse-btn").addEventListener("click", () => setToolbarCollapsed(true));
+document.getElementById("toolbar-expand-btn").addEventListener("click", () => setToolbarCollapsed(false));
+setToolbarCollapsed(localStorage.getItem("jobGridToolbarCollapsed") === "1");
+
+// ---- Keyboard shortcuts modal (Shift+?) ----
+const shortcutsModal = document.getElementById("shortcuts-modal");
+function openShortcutsModal() { shortcutsModal.hidden = false; }
+function closeShortcutsModal() { shortcutsModal.hidden = true; }
+document.getElementById("shortcuts-modal-close").addEventListener("click", closeShortcutsModal);
+shortcutsModal.addEventListener("click", (e) => { if (e.target === shortcutsModal) closeShortcutsModal(); });
+document.addEventListener("keydown", (e) => {
+  if (!shortcutsModal.hidden && e.key === "Escape") { closeShortcutsModal(); return; }
+  if (e.key !== "?") return;
+  // Inside the grid, "?" is normal cell input (typing it opens/edits a cell) —
+  // only treat it as the shortcuts shortcut when focus is elsewhere on the page.
+  const active = document.activeElement;
+  if (active && active.closest && active.closest(".tasks-scroll")) return;
+  const tag = active && active.tagName;
+  if (tag === "INPUT" || tag === "TEXTAREA" || (active && active.isContentEditable)) return;
+  e.preventDefault();
+  openShortcutsModal();
+});
 
 renderSidebar("dashboard");
 (async () => {
@@ -1196,7 +1358,8 @@ renderSidebar("dashboard");
   renderHeaderUser(auth.profile);
 
   if (!jobId) {
-    document.getElementById("project-header").innerHTML = `<p class="muted">No job specified.</p>`;
+    document.getElementById("ph-title").textContent = "No job specified";
+    document.getElementById("stats-strip").innerHTML = "";
     return;
   }
 
@@ -1208,7 +1371,8 @@ renderSidebar("dashboard");
   ]);
 
   if (error || !job) {
-    document.getElementById("project-header").innerHTML = `<p class="muted">Job not found.</p>`;
+    document.getElementById("ph-title").textContent = "Job not found";
+    document.getElementById("stats-strip").innerHTML = "";
     return;
   }
 
@@ -1217,11 +1381,19 @@ renderSidebar("dashboard");
   supervisorNameById = Object.fromEntries((supervisors || []).map(s => [s.id, s.name]));
   currentTasks = tasks || [];
 
-  document.getElementById("crumb-job").textContent = job.job_no;
   document.title = `${job.job_no} — Ref Conveyors Project Tracker`;
 
   renderHeader();
+
+  // No "+ Add Item" button anywhere anymore, so a job with zero tasks would
+  // otherwise have no way to get its first row — auto-create one blank
+  // starter row instead.
+  if (!currentTasks.length) {
+    await addItem({ focusFirstCell: false, silent: true });
+  }
+
   renderTasksTable();
+  updateHeaderStats();
 })();
 </script>
 </body>

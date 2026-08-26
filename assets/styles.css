@@ -36,6 +36,8 @@
   --ic-blue: #5b93ff;
   --ic-green: #3ec281;
   --ic-teal: #2fd0c7;
+
+  --sidebar-w-collapsed: 60px;
 }
 *{box-sizing:border-box;}
 body{margin:0; background:var(--bg); color:var(--text); font-family:'IBM Plex Sans', system-ui, sans-serif; font-size:13px; -webkit-font-smoothing:antialiased;}
@@ -60,13 +62,23 @@ input,select{font-family:inherit;}
    BEFORE renderSidebar() fills it in, so there's no visible flash of empty
    (light-colored) space between navigating to a new page and the sidebar
    JS running. */
-#sidebar-root{width:var(--sidebar-w); flex-shrink:0; background:var(--sidebar-bg); min-height:100vh;}
-.sidebar{width:var(--sidebar-w); flex-shrink:0; background:var(--sidebar-bg); display:flex; flex-direction:column; min-height:100vh; position:sticky; top:0;}
+#sidebar-root{width:var(--sidebar-w); flex-shrink:0; background:var(--sidebar-bg); min-height:100vh; transition:width .15s ease;}
+#sidebar-root.collapsed{width:var(--sidebar-w-collapsed);}
+.sidebar{width:var(--sidebar-w); flex-shrink:0; background:var(--sidebar-bg); display:flex; flex-direction:column; min-height:100vh; position:sticky; top:0; transition:width .15s ease;}
+.sidebar.collapsed{width:var(--sidebar-w-collapsed);}
+.sidebar-toggle{position:absolute; top:18px; right:-12px; width:24px; height:24px; border-radius:50%; background:var(--sidebar-bg-2); border:1px solid var(--sidebar-border); color:var(--sidebar-text); display:flex; align-items:center; justify-content:center; font-size:10px; z-index:10; box-shadow:0 1px 4px rgba(0,0,0,0.35);}
+.sidebar-toggle:hover{background:var(--sidebar-item-hover); color:#fff;}
 .sidebar-logo{padding:20px 20px 16px; border-bottom:1px solid var(--sidebar-border);}
+.sidebar.collapsed .sidebar-logo{padding:20px 0 16px; text-align:center;}
 .sidebar-logo-title{font-family:'Manrope',sans-serif; font-weight:800; font-size:17px; color:#fff; letter-spacing:.02em;}
+.sidebar.collapsed .sidebar-logo-title{font-size:13px;}
 .sidebar-logo-sub{font-size:10.5px; color:var(--ic-blue); font-weight:600; letter-spacing:.06em; text-transform:uppercase; margin-top:1px;}
-.sidebar-nav{flex:1; padding:14px 10px; display:flex; flex-direction:column; gap:2px; overflow-y:auto;}
-.sidebar-item{display:flex; align-items:center; gap:10px; padding:9px 12px; border-radius:8px; color:var(--sidebar-text); font-size:13px; font-weight:500; border-left:3px solid transparent; margin-left:-3px;}
+.sidebar.collapsed .sidebar-logo-sub{display:none;}
+.sidebar-nav{flex:1; padding:14px 10px; display:flex; flex-direction:column; gap:2px; overflow-y:auto; overflow-x:hidden;}
+.sidebar.collapsed .sidebar-nav{padding:14px 6px;}
+.sidebar-item{display:flex; align-items:center; gap:10px; padding:9px 12px; border-radius:8px; color:var(--sidebar-text); font-size:13px; font-weight:500; border-left:3px solid transparent; margin-left:-3px; white-space:nowrap;}
+.sidebar.collapsed .sidebar-item{justify-content:center; padding:9px 0; margin-left:0;}
+.sidebar.collapsed .sidebar-item span:last-child{display:none;}
 .sidebar-item svg{width:17px; height:17px; flex-shrink:0; stroke-width:2;}
 .sidebar-item:hover{background:var(--sidebar-item-hover); color:#c3cee2;}
 .sidebar-item.active{background:var(--sidebar-item-active-bg); color:var(--sidebar-text-active); font-weight:700; border-left-color:var(--sidebar-active-accent);}
@@ -75,10 +87,11 @@ input,select{font-family:inherit;}
 .ic-blue{color:var(--ic-blue);}
 .ic-green{color:var(--ic-green);}
 .ic-teal{color:var(--ic-teal);}
-.sidebar-footer{padding:14px 20px; border-top:1px solid var(--sidebar-border); font-size:11.5px; color:var(--sidebar-text-dim); font-weight:500;}
+.sidebar-footer{padding:14px 20px; border-top:1px solid var(--sidebar-border); font-size:11.5px; color:var(--sidebar-text-dim); font-weight:500; white-space:nowrap; overflow:hidden;}
+.sidebar.collapsed .sidebar-footer{display:none;}
 
 /* ---- Main area / page header ---- */
-.main-area{flex:1; display:flex; flex-direction:column; min-width:0;}
+.main-area{flex:1; display:flex; flex-direction:column; min-width:0; border-left:1px solid var(--border);}
 .page-header{display:flex; justify-content:space-between; align-items:center; gap:20px; padding:16px 28px; background:var(--surface); border-bottom:1px solid var(--border);}
 .page-header h1{font-size:19px; font-weight:700;}
 .page-header .muted{margin:2px 0 0;}

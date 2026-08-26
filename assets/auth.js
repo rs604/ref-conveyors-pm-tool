@@ -89,21 +89,49 @@ const SIDEBAR_NAV = [
   { key: "settings", label: "Settings", href: "settings.html", color: "ic-blue" },
 ];
 
+// Collapsible sidebar state — remembered per browser (localStorage), applies
+// app-wide since every page renders through this one function.
+const SIDEBAR_COLLAPSE_KEY = "sidebarCollapsed";
+
+function isSidebarCollapsed() {
+  try { return localStorage.getItem(SIDEBAR_COLLAPSE_KEY) === "1"; } catch (e) { return false; }
+}
+
+// Toggles the collapsed state in place (no re-render) so it's instant and
+// doesn't disturb anything else on the page.
+function setSidebarCollapsed(collapsed) {
+  try { localStorage.setItem(SIDEBAR_COLLAPSE_KEY, collapsed ? "1" : "0"); } catch (e) { /* ignore */ }
+  const root = document.getElementById("sidebar-root");
+  const aside = root?.querySelector(".sidebar");
+  if (!root || !aside) return;
+  root.classList.toggle("collapsed", collapsed);
+  aside.classList.toggle("collapsed", collapsed);
+  const toggleBtn = aside.querySelector("#sidebar-toggle-btn");
+  if (toggleBtn) {
+    toggleBtn.innerHTML = collapsed ? "&#9656;" : "&#9666;";
+    toggleBtn.setAttribute("aria-label", collapsed ? "Expand sidebar" : "Collapse sidebar");
+    toggleBtn.title = collapsed ? "Expand sidebar" : "Collapse sidebar";
+  }
+}
+
 // Renders the left sidebar into #sidebar-root. `active` is one of the
 // SIDEBAR_NAV keys. Deliberately synchronous and called BEFORE requireAuth()
 // resolves — the sidebar's content doesn't depend on the profile fetch, and
 // calling it immediately (rather than after an async round-trip to Supabase)
-// is what keeps it from flashing empty on every page navigation.
+// is what keeps it from flashing empty (or in the wrong collapsed/expanded
+// state) on every page navigation.
 function renderSidebar(active) {
   const sidebarRoot = document.getElementById("sidebar-root");
   if (!sidebarRoot) return;
+  const collapsed = isSidebarCollapsed();
   const nav = SIDEBAR_NAV.map((n) => `
-    <a class="sidebar-item${n.key === active ? " active" : ""}" href="${n.href}">
+    <a class="sidebar-item${n.key === active ? " active" : ""}" href="${n.href}" title="${escapeHtml(n.label)}">
       <span class="${n.color}">${SIDEBAR_ICONS[n.key]}</span>
       <span>${n.label}</span>
     </a>`).join("");
   sidebarRoot.innerHTML = `
-    <aside class="sidebar">
+    <aside class="sidebar${collapsed ? " collapsed" : ""}">
+      <button type="button" class="sidebar-toggle" id="sidebar-toggle-btn" title="${collapsed ? "Expand sidebar" : "Collapse sidebar"}" aria-label="${collapsed ? "Expand sidebar" : "Collapse sidebar"}">${collapsed ? "&#9656;" : "&#9666;"}</button>
       <div class="sidebar-logo">
         <div class="sidebar-logo-title">REF</div>
         <div class="sidebar-logo-sub">PM Tracker</div>
@@ -111,6 +139,10 @@ function renderSidebar(active) {
       <nav class="sidebar-nav">${nav}</nav>
       <div class="sidebar-footer">Ref Conveyors &amp; Fabricators</div>
     </aside>`;
+  sidebarRoot.classList.toggle("collapsed", collapsed);
+  sidebarRoot.querySelector("#sidebar-toggle-btn").addEventListener("click", () => {
+    setSidebarCollapsed(!isSidebarCollapsed());
+  });
 }
 
 // Renders the user chip + log out button into #header-user-root. Called
