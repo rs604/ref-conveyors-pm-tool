@@ -352,7 +352,12 @@ function enterEditMode(cell, opts = {}) {
     cell.innerHTML = `<input class="cell-input" type="${type === "number" ? "number" : "text"}" ${type === "number" ? 'step="any"' : ""} value="${escapeAttr(seed)}">`;
     const input = cell.querySelector(".cell-input");
     input.focus();
+    // Typed-to-start-editing (initialChar set): put the cursor AFTER that
+    // character, not before — text inputs default the caret to position 0
+    // for a freshly-set value, which would put further typing ahead of it.
+    // (setSelectionRange throws on type=number, so skip it there.)
     if (opts.initialChar === undefined) input.select();
+    else if (type === "text") input.setSelectionRange(seed.length, seed.length);
   } else if (type === "date") {
     cell.innerHTML = `<input class="cell-input" type="date" value="${escapeAttr(currentValue)}">`;
     cell.querySelector(".cell-input").focus();
@@ -362,6 +367,7 @@ function enterEditMode(cell, opts = {}) {
     const input = cell.querySelector(".cell-input");
     input.focus();
     if (opts.initialChar === undefined) input.select();
+    else input.setSelectionRange(seed.length, seed.length);
     renderComboList(cell, seed, { preserveCurrent: opts.initialChar === undefined });
   }
   editingCell = cell;
@@ -389,7 +395,7 @@ function cancelEdit(cell) {
   selectCell(cell);
 }
 
-async function commitEdit(cell, moveDir) {
+async function commitEdit(cell, moveDir, opts = {}) {
   if (editingCell !== cell) return;
   editingCell = null;
   const type = cell.dataset.type;
@@ -403,10 +409,21 @@ async function commitEdit(cell, moveDir) {
   await saveCellValue(cell, type, raw);
   exitEditModeDom(cell);
 
+  // A "silent" commit (the input lost focus because the user clicked
+  // somewhere else entirely — see the focusout handler) must NOT grab focus
+  // back: by the time this async save resolves, the browser may already have
+  // focused whatever the user actually clicked, and calling .focus() here
+  // would yank it back to this cell out from under them.
+  if (opts.silent) return;
+
+  // Removing the <input> drops focus to <body>, so re-focus this cell first —
+  // moveSelection/moveTab below then override that focus only if a target
+  // cell actually exists (e.g. no row below the last one).
+  selectCell(cell);
+
   if (moveDir === "down") moveSelection(cell, 1, 0);
   else if (moveDir === "right") moveTab(cell, true);
   else if (moveDir === "left") moveTab(cell, false);
-  else selectCell(cell);
 }
 
 async function saveCellValue(cell, type, rawNewValue) {
@@ -602,7 +619,7 @@ tasksScroll.addEventListener("focusout", (e) => {
   if (!e.target.classList.contains("cell-input")) return;
   const cell = e.target.closest(".cell");
   if (!cell || editingCell !== cell) return;
-  commitEdit(cell, null);
+  commitEdit(cell, null, { silent: true });
 });
 
 async function addItem() {
