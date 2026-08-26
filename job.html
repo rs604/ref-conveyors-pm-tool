@@ -69,7 +69,11 @@
 .tasks-scroll::-webkit-scrollbar-thumb{background:var(--border-strong); border-radius:6px; border:2px solid var(--surface-2);}
 .tasks-scroll::-webkit-scrollbar-thumb:hover{background:var(--accent);}
 .tasks-scroll table{table-layout:fixed; border-collapse:separate; border-spacing:0; font-size:12.5px;}
-.tasks-scroll thead th{position:relative; position:sticky; top:0; z-index:5; white-space:normal; overflow-wrap:anywhere; vertical-align:bottom; border-right:1px solid var(--border); border-bottom:1px solid var(--border-strong); background:var(--surface-2);}
+/* Tighter padding than the shared 16px th rule — this is a dense spreadsheet
+   grid with narrow columns (the No./Delay columns are ~40-70px), and the
+   shared padding alone would eat most of that width, forcing headers like
+   "No." or "Delay" to wrap letter-by-letter even at their default size. */
+.tasks-scroll thead th{position:relative; position:sticky; top:0; z-index:5; padding:8px 6px; white-space:normal; overflow-wrap:anywhere; vertical-align:bottom; border-right:1px solid var(--border); border-bottom:1px solid var(--border-strong); background:var(--surface-2);}
 .tasks-scroll thead th:last-child{border-right:none;}
 .tasks-scroll td{padding:0; vertical-align:top; border-right:1px solid var(--border);}
 .tasks-scroll td:last-child{border-right:none;}

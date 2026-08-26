@@ -24,11 +24,15 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+const MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 function formatDate(dateStr) {
   if (!dateStr) return "—";
   const d = new Date(dateStr + "T00:00:00");
   const day = String(d.getDate()).padStart(2, "0");
-  const month = d.toLocaleDateString("en-GB", { month: "short" });
+  // A fixed 3-letter list rather than toLocaleDateString's "short" month —
+  // the en-GB locale renders September as "Sept" (4 letters), which breaks
+  // the otherwise-uniform dd-mmm-yy format.
+  const month = MONTH_ABBR[d.getMonth()];
   const year = String(d.getFullYear()).slice(-2);
   return `${day}-${month}-${year}`;
 }
