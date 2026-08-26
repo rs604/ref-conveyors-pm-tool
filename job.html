@@ -373,7 +373,12 @@ function enterEditMode(cell, opts = {}) {
     input.focus();
     if (opts.initialChar === undefined) input.select();
     else input.setSelectionRange(seed.length, seed.length);
-    renderComboList(cell, seed, { preserveCurrent: opts.initialChar === undefined });
+    // When opening via click/F2/dblclick (no typed character), the input is
+    // seeded with the current label just for display/selection purposes —
+    // but the dropdown must show ALL options (current one highlighted), not
+    // just options matching that label text. Only filter by the seed when
+    // the user actually typed a character to start editing.
+    renderComboList(cell, opts.initialChar !== undefined ? seed : "", { preserveCurrent: opts.initialChar === undefined });
     positionComboList(cell);
   }
   editingCell = cell;
