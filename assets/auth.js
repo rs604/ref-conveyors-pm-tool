@@ -27,7 +27,10 @@ function escapeHtml(str) {
 function formatDate(dateStr) {
   if (!dateStr) return "—";
   const d = new Date(dateStr + "T00:00:00");
-  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = d.toLocaleDateString("en-GB", { month: "short" });
+  const year = String(d.getFullYear()).slice(-2);
+  return `${day}-${month}-${year}`;
 }
 
 // Returns a YYYY-MM-DD string for a Date using its LOCAL calendar fields.
