@@ -64,7 +64,12 @@
 .cell.editing .combo-caret{display:none;}
 
 .cell-input{width:100%; border:none; outline:none; background:transparent; font:inherit; color:var(--text); padding:0; box-sizing:border-box;}
-.combo-list{position:absolute; top:100%; left:-2px; min-width:calc(100% + 4px); max-height:220px; overflow-y:auto; background:var(--surface); border:1px solid var(--border-strong); border-radius:8px; box-shadow:0 10px 28px rgba(20,24,40,0.14); z-index:20; margin-top:3px; padding:4px; white-space:nowrap;}
+/* position:fixed (not absolute) so the list escapes the .tasks-scroll
+   container's overflow:auto clipping — an absolutely-positioned list would
+   get cut off for any row near the bottom (or edge) of the scroll viewport.
+   Its top/left/bottom are set from JS (positionComboList) since fixed
+   coordinates are viewport-relative, not relative to the cell. */
+.combo-list{position:fixed; max-height:220px; overflow-y:auto; background:var(--surface); border:1px solid var(--border-strong); border-radius:8px; box-shadow:0 10px 28px rgba(20,24,40,0.14); z-index:50; padding:4px; white-space:nowrap;}
 .combo-option{padding:6px 10px; border-radius:6px; font-size:12.5px; cursor:pointer;}
 .combo-option.highlighted{background:var(--accent-soft); color:var(--accent-text);}
 .combo-empty{padding:6px 10px; font-size:11.5px; color:var(--text-faint); white-space:normal; max-width:220px;}
@@ -369,6 +374,7 @@ function enterEditMode(cell, opts = {}) {
     if (opts.initialChar === undefined) input.select();
     else input.setSelectionRange(seed.length, seed.length);
     renderComboList(cell, seed, { preserveCurrent: opts.initialChar === undefined });
+    positionComboList(cell);
   }
   editingCell = cell;
 }
@@ -509,6 +515,27 @@ function renderComboList(cell, query, opts = {}) {
   ).join("");
 }
 
+// The list is position:fixed (viewport-relative) precisely so it can escape
+// .tasks-scroll's overflow:auto clipping — this computes its coordinates
+// from the cell's current on-screen position, and flips it above the cell
+// when there isn't room below (e.g. the last row or two in the grid).
+function positionComboList(cell) {
+  const list = cell.querySelector(".combo-list");
+  if (!list) return;
+  const rect = cell.getBoundingClientRect();
+  list.style.minWidth = Math.max(rect.width, 120) + "px";
+  list.style.left = Math.max(4, Math.min(rect.left, window.innerWidth - 160)) + "px";
+  const spaceBelow = window.innerHeight - rect.bottom;
+  const openUpward = spaceBelow < list.offsetHeight + 8 && rect.top > list.offsetHeight + 8;
+  if (openUpward) {
+    list.style.top = "";
+    list.style.bottom = (window.innerHeight - rect.top + 2) + "px";
+  } else {
+    list.style.bottom = "";
+    list.style.top = (rect.bottom + 2) + "px";
+  }
+}
+
 function resolveComboValue(cell, type) {
   const input = cell.querySelector(".cell-input");
   const list = cell.querySelector(".combo-list");
@@ -588,7 +615,17 @@ tasksScroll.addEventListener("keydown", (e) => {
 
 tasksScroll.addEventListener("input", (e) => {
   if (!e.target.classList.contains("combo-input")) return;
-  renderComboList(e.target.closest(".cell"), e.target.value);
+  const cell = e.target.closest(".cell");
+  renderComboList(cell, e.target.value);
+  positionComboList(cell); // list height changes as filtering narrows/widens results
+});
+
+// The list's position is computed once when it opens (and again per
+// keystroke); if the grid itself scrolls while it's open, that position
+// goes stale, so just close it rather than leave a floating dropdown
+// detached from its cell.
+tasksScroll.addEventListener("scroll", () => {
+  if (editingCell && editingCell.dataset.type.startsWith("combo")) cancelEdit(editingCell);
 });
 
 tasksScroll.addEventListener("mousedown", (e) => {
