@@ -42,6 +42,16 @@
    and leaving a dead gap below the card when a job has few rows. ---- */
 .content-flush{padding:0 !important; display:flex; flex-direction:column; min-height:0;}
 
+/* .app-shell's shared rule only sets min-height:100vh (a floor, so other
+   pages can grow taller than the screen and let the whole page scroll
+   normally). That's exactly what caused the grid-fill flex chain below to
+   never actually bound itself — flex:1 only clamps against a PARENT with a
+   definite height, and min-height alone doesn't provide one. Job page only:
+   cap the shell at exactly the viewport height so .content's flex:1 (and
+   .tasks-scroll's, in turn) has real room to fill — the grid scrolls
+   internally and the outer page never does. */
+.app-shell-fill{height:100vh;}
+
 /* ---- Spreadsheet-style task grid ---- */
 .tasks-toolbar{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:9px 14px; border-bottom:1px solid var(--border); background:var(--surface-2);}
 .tasks-toolbar-left{display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-muted);}
@@ -174,7 +184,7 @@ kbd{background:var(--surface-2); border:1px solid var(--border-strong); border-b
 </style>
 </head>
 <body>
-<div class="app-shell">
+<div class="app-shell app-shell-fill">
   <div id="sidebar-root"></div>
   <div class="main-area">
     <header class="page-header">
