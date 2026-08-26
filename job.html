@@ -28,11 +28,17 @@
 .btn-status.hold.active{border-color:var(--warn-text); color:var(--warn-text); background:var(--warn-soft);}
 
 /* ---- Spreadsheet-style task grid ---- */
+.tasks-toolbar{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:9px 14px; border-bottom:1px solid var(--border); background:var(--surface-2);}
+.tasks-toolbar-left{display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-muted);}
+.tasks-toolbar select{font-size:12px; padding:4px 8px; border-radius:6px; border:1px solid var(--border-strong); background:var(--surface); color:var(--text);}
+.tasks-toolbar .hint{font-size:11px; color:var(--text-faint);}
 .tasks-panel{background:var(--surface); border:1px solid var(--border); border-radius:12px; box-shadow:0 1px 2px rgba(20,24,40,0.03); overflow:hidden;}
-.tasks-scroll{max-height:calc(100vh - 320px); min-height:220px; overflow:auto; position:relative;}
-.tasks-scroll table{table-layout:fixed; border-collapse:collapse; font-size:12.5px;}
-.tasks-scroll thead th{position:sticky; top:0; z-index:3; white-space:nowrap;}
-.tasks-scroll td{padding:0; vertical-align:top;}
+.tasks-scroll{max-height:calc(100vh - 360px); min-height:220px; overflow:auto; position:relative;}
+.tasks-scroll table{table-layout:fixed; border-collapse:separate; border-spacing:0; font-size:12.5px;}
+.tasks-scroll thead th{position:sticky; top:0; z-index:5; white-space:nowrap; border-right:1px solid var(--border); border-bottom:1px solid var(--border-strong);}
+.tasks-scroll thead th:last-child{border-right:none;}
+.tasks-scroll td{padding:0; vertical-align:top; border-right:1px solid var(--border);}
+.tasks-scroll td:last-child{border-right:none;}
 .tasks-add-row{padding:12px 16px; border-top:1px solid var(--border);}
 
 .tasks-scroll th:nth-child(1), .tasks-scroll td:nth-child(1){width:42px;}
@@ -48,20 +54,44 @@
 .tasks-scroll th:nth-child(11), .tasks-scroll td:nth-child(11){width:104px;}
 .tasks-scroll th:nth-child(12), .tasks-scroll td:nth-child(12){width:38px;}
 
+/* Freeze-columns: left offsets match the cumulative widths above (42 / 222 / 402 / 466). A
+   dynamically-generated <style id="freeze-style"> (see JS) turns individual nth-child
+   columns sticky based on the toolbar selection; these are just the shared building blocks. */
+.frozen-col{position:sticky; z-index:4; background:var(--surface);}
+.frozen-col.freeze-edge{box-shadow:2px 0 6px rgba(20,24,40,0.10);}
+thead .frozen-col{z-index:6;}
+
 /* A .cell is the "selected, not editing" state — a plain focusable div.
    Clicking/arrowing onto it just selects it; typing or Enter/F2/double-click
    is what switches it into .editing (an <input> appears inside it). This
    two-state model (rather than a permanently-live <input>) is what lets
    arrow keys mean "move between cells" while selected but "move the text
    cursor" while editing, matching Sheets/Excel. */
-.cell{position:relative; min-height:19px; padding:6px 8px; cursor:cell; outline:none; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
-.cell:focus{box-shadow:inset 0 0 0 2px var(--accent); background:var(--accent-soft); z-index:1;}
-.cell.editing{box-shadow:inset 0 0 0 2px var(--accent); background:var(--surface); white-space:normal; overflow:visible; z-index:4;}
+.cell{position:relative; box-sizing:border-box; min-height:15px; padding:4px 7px; cursor:cell; outline:none; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; border:1px solid transparent;}
+.cell:hover:not(.editing):not(:focus){background:var(--surface-2);}
+.cell:focus{box-shadow:inset 0 0 0 2px var(--accent); background:var(--accent-soft); z-index:2;}
+.cell.editing{box-shadow:inset 0 0 0 2px var(--accent); background:var(--surface); white-space:normal; overflow:visible; z-index:6;}
 .cell:empty::before, .cell.combo-cell:empty::before{content:"\2014"; color:var(--text-faint);}
 .num-cell{text-align:right;}
 .combo-cell{padding-right:20px;}
 .combo-caret{position:absolute; right:6px; top:50%; transform:translateY(-50%); font-size:8px; color:var(--text-faint); pointer-events:none;}
 .cell.editing .combo-caret{display:none;}
+
+/* ---- Read-only cells ---- */
+.ro-cell{padding:4px 7px; background:var(--surface-2); color:var(--text-faint);}
+
+/* ---- Validation error state ---- */
+.cell.cell-error{box-shadow:inset 0 0 0 2px var(--warn-text, #c0392b); background:var(--warn-soft, #fdecea); z-index:3;}
+.cell-error-msg{position:fixed; background:var(--warn-text, #c0392b); color:#fff; font-size:11px; padding:4px 8px; border-radius:6px; z-index:60; max-width:240px; box-shadow:0 6px 16px rgba(20,24,40,0.18); pointer-events:none;}
+
+/* ---- Multi-cell range selection ---- */
+.cell.in-range{background:rgba(59,130,246,0.10);}
+.cell.range-edge-top{border-top-color:var(--accent);}
+.cell.range-edge-bottom{border-bottom-color:var(--accent);}
+.cell.range-edge-left{border-left-color:var(--accent);}
+.cell.range-edge-right{border-right-color:var(--accent);}
+.cell.range-flash{animation:rangeFlash 1.1s ease-out;}
+@keyframes rangeFlash{0%{outline:2px dashed var(--accent); outline-offset:-2px;}100%{outline:2px dashed transparent; outline-offset:-2px;}}
 
 .cell-input{width:100%; border:none; outline:none; background:transparent; font:inherit; color:var(--text); padding:0; box-sizing:border-box;}
 /* position:fixed (not absolute) so the list escapes the .tasks-scroll
@@ -76,7 +106,15 @@
 
 .btn-remove-row{background:none; border:none; color:var(--text-faint); font-size:15px; line-height:1; padding:5px 8px; border-radius:6px;}
 .btn-remove-row:hover{color:var(--warn-text); background:var(--warn-soft);}
-.ro-cell{padding:6px 8px;}
+
+/* ---- Right-click row context menu ---- */
+.ctx-menu{position:fixed; background:var(--surface); border:1px solid var(--border-strong); border-radius:8px; box-shadow:0 10px 28px rgba(20,24,40,0.16); padding:4px; z-index:100; min-width:170px;}
+.ctx-menu button{display:block; width:100%; text-align:left; padding:7px 12px; font-size:12.5px; border-radius:6px; background:none; border:none; color:var(--text); cursor:pointer;}
+.ctx-menu button:hover{background:var(--surface-2);}
+
+/* ---- Toast (paste/fill-down feedback) ---- */
+.grid-toast{position:fixed; bottom:22px; left:50%; transform:translateX(-50%); background:var(--text); color:var(--surface); padding:9px 18px; border-radius:8px; font-size:12.5px; box-shadow:0 8px 24px rgba(0,0,0,0.22); z-index:200; opacity:0; transition:opacity .2s;}
+.grid-toast.show{opacity:1;}
 </style>
 </head>
 <body>
@@ -93,6 +131,18 @@
     <main class="content">
       <div class="project-header" id="project-header"><p class="muted">Loading…</p></div>
       <div class="tasks-panel">
+        <div class="tasks-toolbar">
+          <div class="tasks-toolbar-left">
+            <label for="freeze-select">Freeze columns</label>
+            <select id="freeze-select">
+              <option value="0">None</option>
+              <option value="1">First 1</option>
+              <option value="2">First 2</option>
+              <option value="3">First 3</option>
+            </select>
+          </div>
+          <div class="hint">Enter edits a cell · Enter again saves &amp; moves right · Ctrl+C/V copy-paste a range · Ctrl+D fills down · Right-click a row to insert</div>
+        </div>
         <div class="tasks-scroll" id="tasks-scroll">
           <div class="empty-state" id="tasks-loading"><p>Loading…</p></div>
         </div>
@@ -103,6 +153,12 @@
     </main>
   </div>
 </div>
+
+<div class="ctx-menu" id="row-ctx-menu" hidden>
+  <button type="button" id="ctx-add-above">Insert row above</button>
+  <button type="button" id="ctx-add-below">Insert row below</button>
+</div>
+<div class="grid-toast" id="grid-toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="assets/supabase-client.js"></script>
@@ -249,7 +305,8 @@ function cellHtml(rowIdx, colIdx, t) {
   if (isCombo && display === "") display = "—"; // caret makes the cell non-empty, so CSS :empty won't add this itself
   const extraClass = col.type === "number" ? "num-cell" : isCombo ? "combo-cell" : "";
   const caret = isCombo ? `<span class="combo-caret">&#9662;</span>` : "";
-  return `<div class="cell ${extraClass}" tabindex="0" data-row="${rowIdx}" data-col="${colIdx}" data-id="${t.id}" data-field="${field}" data-type="${col.type}" data-value="${escapeAttr(rawValue)}">${escapeHtml(String(display))}${caret}</div>`;
+  const title = display ? ` title="${escapeAttr(display)}"` : "";
+  return `<div class="cell ${extraClass}" tabindex="0" data-row="${rowIdx}" data-col="${colIdx}" data-id="${t.id}" data-field="${field}" data-type="${col.type}" data-value="${escapeAttr(rawValue)}"${title}>${escapeHtml(String(display))}${caret}</div>`;
 }
 
 function taskRowHtml(t, rowIdx) {
@@ -309,22 +366,76 @@ async function handleStatusChange(taskId, newStatus) {
   const { data: updated, error } = await supabaseClient
     .from("job_tasks").update(patch).eq("id", taskId).select().single();
   if (error) {
-    alert("Couldn't update status: " + error.message);
-    return;
+    return { ok: false, message: error.message };
   }
   patchTaskInMemory(updated);
   updateRowComputedCells(updated);
   updateHeaderStats();
+  return { ok: true };
 }
 
 // ---- Cell selection / navigation ----
 let editingCell = null;
 
+// Range selection: selectionAnchor/selectionActive are {row,col}. A single
+// selected cell is just anchor===active. Real DOM focus always follows
+// selectionActive (so keyboard nav/editing continues from the right place);
+// the rest of the rectangle is a purely visual highlight.
+let selectionAnchor = null;
+let selectionActive = null;
+let isDragSelecting = false;
+let dragMoved = false;
+
 function cellAt(row, col) {
   return document.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`);
 }
 function selectCell(cell) {
-  if (cell) cell.focus();
+  if (!cell) return;
+  cell.focus();
+  const r = parseInt(cell.dataset.row, 10), c = parseInt(cell.dataset.col, 10);
+  selectionAnchor = { row: r, col: c };
+  selectionActive = { row: r, col: c };
+  renderRangeHighlight();
+}
+function setActiveCellKeepAnchor(cell) {
+  if (!cell || !selectionAnchor) return selectCell(cell);
+  cell.focus();
+  selectionActive = { row: parseInt(cell.dataset.row, 10), col: parseInt(cell.dataset.col, 10) };
+  renderRangeHighlight();
+}
+function getSelRect() {
+  if (!selectionAnchor || !selectionActive) return null;
+  return {
+    r1: Math.min(selectionAnchor.row, selectionActive.row),
+    r2: Math.max(selectionAnchor.row, selectionActive.row),
+    c1: Math.min(selectionAnchor.col, selectionActive.col),
+    c2: Math.max(selectionAnchor.col, selectionActive.col),
+  };
+}
+function isMultiCellSelection() {
+  const rect = getSelRect();
+  return !!rect && (rect.r1 !== rect.r2 || rect.c1 !== rect.c2);
+}
+function forEachCellInRect(rect, fn) {
+  for (let r = rect.r1; r <= rect.r2; r++) {
+    for (let c = rect.c1; c <= rect.c2; c++) {
+      const cell = cellAt(r, c);
+      if (cell) fn(cell, r, c);
+    }
+  }
+}
+function renderRangeHighlight() {
+  document.querySelectorAll(".cell.in-range, .cell.range-edge-top, .cell.range-edge-bottom, .cell.range-edge-left, .cell.range-edge-right")
+    .forEach(el => el.classList.remove("in-range", "range-edge-top", "range-edge-bottom", "range-edge-left", "range-edge-right"));
+  const rect = getSelRect();
+  if (!rect || !isMultiCellSelection()) return;
+  forEachCellInRect(rect, (cell, r, c) => {
+    cell.classList.add("in-range");
+    if (r === rect.r1) cell.classList.add("range-edge-top");
+    if (r === rect.r2) cell.classList.add("range-edge-bottom");
+    if (c === rect.c1) cell.classList.add("range-edge-left");
+    if (c === rect.c2) cell.classList.add("range-edge-right");
+  });
 }
 function moveSelection(cell, dRow, dCol) {
   const row = parseInt(cell.dataset.row, 10);
@@ -332,14 +443,29 @@ function moveSelection(cell, dRow, dCol) {
   const target = cellAt(row + dRow, col + dCol);
   if (target) selectCell(target);
 }
-function moveTab(cell, forward) {
+function extendSelection(cell, dRow, dCol) {
+  const row = parseInt(cell.dataset.row, 10);
+  const col = parseInt(cell.dataset.col, 10);
+  const maxRow = currentTasks.length - 1;
+  const maxCol = COLUMNS.length - 1;
+  const nr = Math.max(0, Math.min(maxRow, row + dRow));
+  const nc = Math.max(0, Math.min(maxCol, col + dCol));
+  const target = cellAt(nr, nc);
+  if (target) setActiveCellKeepAnchor(target);
+}
+async function moveTab(cell, forward) {
   const row = parseInt(cell.dataset.row, 10);
   const col = parseInt(cell.dataset.col, 10);
   const maxCol = COLUMNS.length - 1;
   let r = row, c = col;
   if (forward) { if (c < maxCol) c++; else { c = 0; r++; } }
   else { if (c > 0) c--; else { c = maxCol; r--; } }
-  const target = cellAt(r, c);
+  let target = cellAt(r, c);
+  if (!target && forward && r >= currentTasks.length) {
+    // Fell off the bottom while moving forward — auto-create the next row.
+    target = await addItem({ focusFirstCell: false });
+    target = cellAt(currentTasks.length - 1, 0);
+  }
   if (target) selectCell(target);
 }
 
@@ -392,6 +518,7 @@ function renderCellDisplay(cell) {
   if (isCombo && text === "") text = "—";
   const caret = isCombo ? `<span class="combo-caret">&#9662;</span>` : "";
   cell.innerHTML = `${escapeHtml(String(text))}${caret}`;
+  if (text) cell.setAttribute("title", text); else cell.removeAttribute("title");
 }
 
 function exitEditModeDom(cell) {
@@ -402,12 +529,40 @@ function exitEditModeDom(cell) {
 function cancelEdit(cell) {
   if (editingCell !== cell) return;
   editingCell = null;
+  clearCellError(cell);
   exitEditModeDom(cell);
   selectCell(cell);
 }
 
+// ---- Inline validation error display (rule: never silently discard a
+// user's input — keep it visible, keep them in the cell, let them retry). ----
+function showCellError(cell, message) {
+  cell.classList.add("cell-error");
+  clearCellErrorTooltip();
+  const tip = document.createElement("div");
+  tip.className = "cell-error-msg";
+  tip.id = "active-cell-error-msg";
+  tip.textContent = message || "Couldn't save this value";
+  document.body.appendChild(tip);
+  const rect = cell.getBoundingClientRect();
+  tip.style.left = Math.max(4, Math.min(rect.left, window.innerWidth - 250)) + "px";
+  tip.style.top = (rect.bottom + 4) + "px";
+}
+function clearCellErrorTooltip() {
+  const existing = document.getElementById("active-cell-error-msg");
+  if (existing) existing.remove();
+}
+function clearCellError(cell) {
+  cell.classList.remove("cell-error");
+  clearCellErrorTooltip();
+}
+
 async function commitEdit(cell, moveDir, opts = {}) {
   if (editingCell !== cell) return;
+  // Release the tracking pointer immediately (not after the async save) so a
+  // fast enterEditMode() on a different cell right after this one is called
+  // (e.g. from the unawaited "commit the cell I'm leaving" in enterEditMode)
+  // is never later clobbered by this call's own resolution.
   editingCell = null;
   const type = cell.dataset.type;
   const input = cell.querySelector(".cell-input");
@@ -417,7 +572,22 @@ async function commitEdit(cell, moveDir, opts = {}) {
   else if (type === "date") raw = input.value;
   else if (type.startsWith("combo")) raw = resolveComboValue(cell, type);
 
-  await saveCellValue(cell, type, raw);
+  const result = await saveCellValue(cell, type, raw);
+
+  if (!result.ok) {
+    // Keep the cell open with the user's typed value and show them exactly
+    // what's wrong, instead of silently reverting to the old value. Only
+    // re-claim the tracking pointer if nothing else has taken over editing
+    // in the meantime — otherwise just leave the error showing in place.
+    showCellError(cell, result.message);
+    if (editingCell === null && cell.classList.contains("editing")) {
+      editingCell = cell;
+      if (input) input.focus();
+    }
+    return;
+  }
+
+  clearCellError(cell);
   exitEditModeDom(cell);
 
   // A "silent" commit (the input lost focus because the user clicked
@@ -433,8 +603,8 @@ async function commitEdit(cell, moveDir, opts = {}) {
   selectCell(cell);
 
   if (moveDir === "down") moveSelection(cell, 1, 0);
-  else if (moveDir === "right") moveTab(cell, true);
-  else if (moveDir === "left") moveTab(cell, false);
+  else if (moveDir === "right") await moveTab(cell, true);
+  else if (moveDir === "left") await moveTab(cell, false);
 }
 
 async function saveCellValue(cell, type, rawNewValue) {
@@ -442,17 +612,24 @@ async function saveCellValue(cell, type, rawNewValue) {
   const field = cell.dataset.field;
 
   if (field === "status") {
-    if (rawNewValue === null) return; // no match / cleared — revert, status can't be blank
-    if (rawNewValue.value !== cell.dataset.value) await handleStatusChange(taskId, rawNewValue.value);
+    if (rawNewValue === null) return { ok: false, message: "Choose a valid status" };
+    if (rawNewValue.value !== cell.dataset.value) {
+      const res = await handleStatusChange(taskId, rawNewValue.value);
+      if (res && !res.ok) return res;
+    }
     cell.dataset.value = rawNewValue.value;
-    return;
+    return { ok: true };
   }
 
   let value;
-  if (type === "number") value = rawNewValue === "" ? null : parseFloat(rawNewValue);
+  if (type === "number") {
+    if (rawNewValue !== "" && isNaN(parseFloat(rawNewValue))) return { ok: false, message: "Enter a valid number" };
+    value = rawNewValue === "" ? null : parseFloat(rawNewValue);
+    if (value !== null && value < 0) return { ok: false, message: "Qty can't be negative" };
+  }
   else if (type === "date") value = rawNewValue || null;
   else if (type.startsWith("combo")) {
-    if (rawNewValue === null) return; // doer must resolve to a real person or Unassigned — revert if not
+    if (rawNewValue === null) return { ok: false, message: type === "combo-doer" ? "No matching person" : "No matching option" };
     value = rawNewValue.value || null;
   } else value = rawNewValue;
 
@@ -461,18 +638,18 @@ async function saveCellValue(cell, type, rawNewValue) {
   const newCompare = value === null || value === undefined ? "" : String(value);
   if (prevCompare === newCompare) {
     cell.dataset.value = value ?? "";
-    return;
+    return { ok: true };
   }
 
   const { data: updated, error } = await supabaseClient
     .from("job_tasks").update({ [field]: value }).eq("id", taskId).select().single();
   if (error) {
-    alert("Couldn't save: " + error.message);
-    return;
+    return { ok: false, message: error.message };
   }
   patchTaskInMemory(updated);
   cell.dataset.value = updated[field] ?? "";
   updateRowComputedCells(updated);
+  return { ok: true };
 }
 
 async function clearCell(cell) {
@@ -482,8 +659,57 @@ async function clearCell(cell) {
   if (type === "combo-doer") raw = { value: "", label: "Unassigned" };
   else if (type === "combo-uom") raw = { value: "", label: "" };
   else raw = "";
-  await saveCellValue(cell, type, raw);
+  const result = await saveCellValue(cell, type, raw);
+  if (!result.ok) { showCellError(cell, result.message); return; }
+  clearCellError(cell);
   renderCellDisplay(cell);
+}
+
+async function clearSelection(cell) {
+  if (!isMultiCellSelection()) { await clearCell(cell); return; }
+  const rect = getSelRect();
+  const cells = [];
+  forEachCellInRect(rect, (c) => cells.push(c));
+  await Promise.all(cells.map(c => clearCell(c)));
+}
+
+// ---- Shared value-application path for paste / fill-down (cells that are
+// NOT in "editing" mode — the value is written directly, validated exactly
+// like a typed commit, and the cell re-rendered in place). ----
+function resolveComboValueFromText(type, text) {
+  const options = optionsForType(type);
+  const typed = (text ?? "").trim();
+  if (typed === "") {
+    if (type === "combo-doer") return { value: "", label: "Unassigned" };
+    if (type === "combo-uom") return { value: "", label: "" };
+    return null;
+  }
+  const exact = options.find(o => o.label.toLowerCase() === typed.toLowerCase());
+  if (exact) return exact;
+  if (type === "combo-uom") return { value: typed, label: typed };
+  return null;
+}
+
+async function applyValueToCell(cell, stringValue) {
+  const type = cell.dataset.type;
+  let raw;
+  if (type.startsWith("combo")) raw = resolveComboValueFromText(type, stringValue);
+  else raw = String(stringValue ?? "").trim();
+
+  const result = await saveCellValue(cell, type, raw);
+  if (!result.ok) {
+    showCellError(cell, result.message);
+    return false;
+  }
+  clearCellError(cell);
+  renderCellDisplay(cell);
+  return true;
+}
+
+function cellTextForCopy(cell) {
+  const type = cell.dataset.type;
+  const value = cell.dataset.value || "";
+  return type.startsWith("combo") ? labelFor(type, value) : value;
 }
 
 // ---- Searchable dropdown (Unit / Doer / Status) ----
@@ -570,19 +796,31 @@ tasksScroll.addEventListener("keydown", (e) => {
   const cell = e.target.closest(".cell");
   if (!cell) return;
   const isEditing = cell.classList.contains("editing");
+  const cmdKey = e.ctrlKey || e.metaKey;
 
   if (!isEditing) {
+    // Shift+Arrow extends the range selection instead of moving it.
+    if (e.shiftKey && ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) {
+      e.preventDefault();
+      const d = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] }[e.key];
+      extendSelection(cell, d[0], d[1]);
+      return;
+    }
+    if (cmdKey && e.key.toLowerCase() === "c") { e.preventDefault(); doCopy(cell); return; }
+    if (cmdKey && e.key.toLowerCase() === "v") { e.preventDefault(); doPaste(cell); return; }
+    if (cmdKey && e.key.toLowerCase() === "d") { e.preventDefault(); doFillDown(cell); return; }
     switch (e.key) {
       case "ArrowUp": e.preventDefault(); moveSelection(cell, -1, 0); return;
       case "ArrowDown": e.preventDefault(); moveSelection(cell, 1, 0); return;
       case "ArrowLeft": e.preventDefault(); moveSelection(cell, 0, -1); return;
       case "ArrowRight": e.preventDefault(); moveSelection(cell, 0, 1); return;
-      case "Enter": e.preventDefault(); moveSelection(cell, 1, 0); return;
+      case "Enter": e.preventDefault(); enterEditMode(cell); return;
       case "Tab": e.preventDefault(); moveTab(cell, !e.shiftKey); return;
       case "F2": e.preventDefault(); enterEditMode(cell); return;
-      case "Backspace": case "Delete": e.preventDefault(); clearCell(cell); return;
+      case "Escape": e.preventDefault(); selectCell(cell); return; // collapse any range to a single cell
+      case "Backspace": case "Delete": e.preventDefault(); clearSelection(cell); return;
       default:
-        if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        if (e.key.length === 1 && !cmdKey && !e.altKey) {
           e.preventDefault();
           enterEditMode(cell, { initialChar: e.key });
         }
@@ -605,14 +843,14 @@ tasksScroll.addEventListener("keydown", (e) => {
       next.scrollIntoView({ block: "nearest" });
       return;
     }
-    if (e.key === "Enter") { e.preventDefault(); commitEdit(cell, "down"); return; }
+    if (e.key === "Enter") { e.preventDefault(); commitEdit(cell, "right"); return; }
     if (e.key === "Tab") { e.preventDefault(); commitEdit(cell, e.shiftKey ? "left" : "right"); return; }
     if (e.key === "Escape") { e.preventDefault(); cancelEdit(cell); return; }
     return; // other keys: let the text input take them (filtering handled by the 'input' listener)
   }
 
   // plain text / number / date cell, editing
-  if (e.key === "Enter") { e.preventDefault(); commitEdit(cell, "down"); return; }
+  if (e.key === "Enter") { e.preventDefault(); commitEdit(cell, "right"); return; }
   if (e.key === "Tab") { e.preventDefault(); commitEdit(cell, e.shiftKey ? "left" : "right"); return; }
   if (e.key === "Escape") { e.preventDefault(); cancelEdit(cell); return; }
   // ArrowUp/Down/Left/Right fall through untouched — native text-cursor / date-segment behavior
@@ -628,26 +866,75 @@ tasksScroll.addEventListener("input", (e) => {
 // The list's position is computed once when it opens (and again per
 // keystroke); if the grid itself scrolls while it's open, that position
 // goes stale, so just close it rather than leave a floating dropdown
-// detached from its cell.
+// detached from its cell. An open error tooltip is repositioned the same way.
 tasksScroll.addEventListener("scroll", () => {
   if (editingCell && editingCell.dataset.type.startsWith("combo")) cancelEdit(editingCell);
+  const errCell = document.querySelector(".cell.cell-error");
+  const tip = document.getElementById("active-cell-error-msg");
+  if (errCell && tip) {
+    const rect = errCell.getBoundingClientRect();
+    tip.style.left = Math.max(4, Math.min(rect.left, window.innerWidth - 250)) + "px";
+    tip.style.top = (rect.bottom + 4) + "px";
+  }
 });
+
+let dragStartCell = null;
 
 tasksScroll.addEventListener("mousedown", (e) => {
   const opt = e.target.closest(".combo-option");
-  if (!opt) return;
-  e.preventDefault(); // keep the input from blurring before we act on the click
-  const cell = opt.closest(".cell");
-  cell.querySelectorAll(".combo-option").forEach(o => o.classList.remove("highlighted"));
-  opt.classList.add("highlighted");
-  commitEdit(cell, null);
+  if (opt) {
+    e.preventDefault(); // keep the input from blurring before we act on the click
+    const cell = opt.closest(".cell");
+    cell.querySelectorAll(".combo-option").forEach(o => o.classList.remove("highlighted"));
+    opt.classList.add("highlighted");
+    commitEdit(cell, null);
+    return;
+  }
+  const cell = e.target.closest(".cell");
+  if (!cell || cell.classList.contains("editing")) return;
+  if (e.shiftKey && selectionAnchor) {
+    setActiveCellKeepAnchor(cell);
+    dragMoved = false;
+    return;
+  }
+  dragStartCell = cell;
+  isDragSelecting = true;
+  dragMoved = false;
+  selectionAnchor = { row: +cell.dataset.row, col: +cell.dataset.col };
+  selectionActive = { ...selectionAnchor };
+  renderRangeHighlight();
+});
+
+tasksScroll.addEventListener("mousemove", (e) => {
+  if (!isDragSelecting) return;
+  const cell = e.target.closest(".cell");
+  if (!cell) return;
+  const r = +cell.dataset.row, c = +cell.dataset.col;
+  if (!selectionActive || selectionActive.row !== r || selectionActive.col !== c) {
+    dragMoved = true;
+    selectionActive = { row: r, col: c };
+    renderRangeHighlight();
+  }
+});
+
+document.addEventListener("mouseup", () => {
+  if (isDragSelecting && selectionActive) {
+    const finalCell = cellAt(selectionActive.row, selectionActive.col);
+    if (finalCell) finalCell.focus();
+  }
+  isDragSelecting = false;
+  dragStartCell = null;
 });
 
 tasksScroll.addEventListener("click", (e) => {
   const removeBtn = e.target.closest("[data-remove-task]");
   if (removeBtn) { removeItem(removeBtn.dataset.removeTask); return; }
   const cell = e.target.closest(".cell");
-  if (cell && cell.dataset.type.startsWith("combo") && !cell.classList.contains("editing")) {
+  if (!cell) return;
+  if (dragMoved) { dragMoved = false; return; } // this click just concluded a drag-select — leave the range as-is
+  if (e.shiftKey && selectionAnchor) { setActiveCellKeepAnchor(cell); return; }
+  selectCell(cell);
+  if (cell.dataset.type.startsWith("combo") && !cell.classList.contains("editing")) {
     enterEditMode(cell);
   }
 });
@@ -664,7 +951,193 @@ tasksScroll.addEventListener("focusout", (e) => {
   commitEdit(cell, null, { silent: true });
 });
 
-async function addItem() {
+// ---- Copy / paste / fill-down (Ctrl/Cmd+C, +V, +D) ----
+let lastCopiedTsv = "";
+
+function serializeRectToTsv(rect) {
+  const rows = [];
+  for (let r = rect.r1; r <= rect.r2; r++) {
+    const rowVals = [];
+    for (let c = rect.c1; c <= rect.c2; c++) {
+      const cell = cellAt(r, c);
+      rowVals.push(cell ? cellTextForCopy(cell) : "");
+    }
+    rows.push(rowVals.join("\t"));
+  }
+  return rows.join("\n");
+}
+
+function parseTsv(text) {
+  return text.replace(/\r/g, "").split("\n").map(line => line.split("\t"));
+}
+
+let toastTimer = null;
+function showToast(message) {
+  const el = document.getElementById("grid-toast");
+  el.textContent = message;
+  el.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove("show"), 2200);
+}
+
+async function doCopy(cell) {
+  const rect = getSelRect() || { r1: +cell.dataset.row, r2: +cell.dataset.row, c1: +cell.dataset.col, c2: +cell.dataset.col };
+  const tsv = serializeRectToTsv(rect);
+  lastCopiedTsv = tsv;
+  try { await navigator.clipboard.writeText(tsv); } catch (e) { /* OS clipboard unavailable — in-app fallback still works */ }
+  forEachCellInRect(rect, (c) => {
+    c.classList.add("range-flash");
+    setTimeout(() => c.classList.remove("range-flash"), 1150);
+  });
+}
+
+async function doPaste(cell) {
+  let text = "";
+  try { text = await navigator.clipboard.readText(); } catch (e) { /* fall through to in-app clipboard */ }
+  if (!text) text = lastCopiedTsv;
+  if (!text) return;
+  const rows = parseTsv(text);
+  const destRow = +cell.dataset.row;
+  const destCol = +cell.dataset.col;
+  const neededLastRow = destRow + rows.length - 1;
+  while (currentTasks.length - 1 < neededLastRow) {
+    const created = await addItem({ focusFirstCell: false, silent: true });
+    if (!created) break; // couldn't create more rows — paste what fits
+  }
+  let applied = 0, skipped = 0;
+  for (let r = 0; r < rows.length; r++) {
+    const rowVals = rows[r];
+    if (destRow + r > currentTasks.length - 1) break;
+    for (let c = 0; c < rowVals.length; c++) {
+      const targetCol = destCol + c;
+      if (targetCol > COLUMNS.length - 1) continue; // clip overflow past the last editable column
+      const targetCell = cellAt(destRow + r, targetCol);
+      if (!targetCell) continue;
+      const ok = await applyValueToCell(targetCell, rowVals[c]);
+      if (ok) applied++; else skipped++;
+    }
+  }
+  showToast(skipped
+    ? `Pasted ${applied} cell${applied === 1 ? "" : "s"} (${skipped} couldn't be saved)`
+    : `Pasted ${applied} cell${applied === 1 ? "" : "s"}`);
+  const lastRow = Math.min(destRow + rows.length - 1, currentTasks.length - 1);
+  const lastCol = Math.min(destCol + (rows[0]?.length || 1) - 1, COLUMNS.length - 1);
+  selectionAnchor = { row: destRow, col: destCol };
+  selectionActive = { row: lastRow, col: lastCol };
+  renderRangeHighlight();
+  cellAt(destRow, destCol)?.focus();
+}
+
+async function doFillDown(cell) {
+  const rect = getSelRect() || { r1: +cell.dataset.row, r2: +cell.dataset.row, c1: +cell.dataset.col, c2: +cell.dataset.col };
+  let sourceRow, targetRows;
+  if (rect.r1 === rect.r2) {
+    sourceRow = rect.r1 - 1;
+    targetRows = [rect.r1];
+  } else {
+    sourceRow = rect.r1;
+    targetRows = [];
+    for (let r = rect.r1 + 1; r <= rect.r2; r++) targetRows.push(r);
+  }
+  if (sourceRow < 0) return;
+  let applied = 0;
+  for (const r of targetRows) {
+    for (let c = rect.c1; c <= rect.c2; c++) {
+      const src = cellAt(sourceRow, c);
+      const dst = cellAt(r, c);
+      if (!src || !dst) continue;
+      const ok = await applyValueToCell(dst, cellTextForCopy(src));
+      if (ok) applied++;
+    }
+  }
+  showToast(`Filled down ${applied} cell${applied === 1 ? "" : "s"}`);
+}
+
+// ---- Right-click row context menu: Insert row above/below ----
+const rowCtxMenu = document.getElementById("row-ctx-menu");
+let ctxMenuTaskId = null;
+
+function closeCtxMenu() { rowCtxMenu.hidden = true; ctxMenuTaskId = null; }
+
+tasksScroll.addEventListener("contextmenu", (e) => {
+  const row = e.target.closest("tr[data-task-row]");
+  if (!row) return;
+  e.preventDefault();
+  ctxMenuTaskId = row.dataset.taskRow;
+  rowCtxMenu.hidden = false;
+  const menuW = rowCtxMenu.offsetWidth || 170, menuH = rowCtxMenu.offsetHeight || 80;
+  rowCtxMenu.style.left = Math.min(e.clientX, window.innerWidth - menuW - 8) + "px";
+  rowCtxMenu.style.top = Math.min(e.clientY, window.innerHeight - menuH - 8) + "px";
+});
+
+document.addEventListener("click", (e) => {
+  if (!rowCtxMenu.hidden && !rowCtxMenu.contains(e.target)) closeCtxMenu();
+});
+document.addEventListener("keydown", (e) => {
+  if (!rowCtxMenu.hidden && e.key === "Escape") closeCtxMenu();
+});
+
+document.getElementById("ctx-add-above").addEventListener("click", () => {
+  const id = ctxMenuTaskId; closeCtxMenu();
+  if (id) insertRowRelative(id, "above");
+});
+document.getElementById("ctx-add-below").addEventListener("click", () => {
+  const id = ctxMenuTaskId; closeCtxMenu();
+  if (id) insertRowRelative(id, "below");
+});
+
+// Inserting "above"/"below" shifts every task_no from the insertion point on
+// by 1 (a small bulk update — task lists here are short, so this is cheap)
+// and slots the new row into the freed number. The displayed "No." always
+// mirrors task_no, so it renumbers automatically; task_no itself is never
+// treated as anything other than a display/sort field.
+async function insertRowRelative(taskId, position) {
+  const idx = currentTasks.findIndex(t => t.id === taskId);
+  if (idx === -1) return;
+  const anchorNo = currentTasks[idx].task_no;
+  const newNo = position === "above" ? anchorNo : anchorNo + 1;
+  const toShift = currentTasks.filter(t => t.task_no >= newNo);
+  if (toShift.length) {
+    await Promise.all(toShift.map(t =>
+      supabaseClient.from("job_tasks").update({ task_no: t.task_no + 1 }).eq("id", t.id)
+    ));
+    toShift.forEach(t => { t.task_no += 1; });
+  }
+  const { data: newTask, error } = await supabaseClient.from("job_tasks").insert({
+    job_id: jobId, task_no: newNo, item_name: "New Item", status: "pending",
+  }).select().single();
+  if (error) { alert("Couldn't insert row: " + error.message); return; }
+  currentTasks.push(newTask);
+  currentTasks.sort((a, b) => a.task_no - b.task_no);
+  renderTasksTable();
+  updateHeaderStats();
+  const newIdx = currentTasks.findIndex(t => t.id === newTask.id);
+  cellAt(newIdx, 0)?.focus();
+}
+
+// ---- Freeze columns ----
+function applyFreeze(n) {
+  n = Math.max(0, Math.min(3, parseInt(n, 10) || 0));
+  localStorage.setItem("jobGridFreezeCols", String(n));
+  const widths = [42, 180, 180, 64]; // No. / Item / Description / Qty — matches the nth-child widths above
+  let css = "", left = 0;
+  for (let i = 1; i <= n; i++) {
+    css += `.tasks-scroll th:nth-child(${i}), .tasks-scroll td:nth-child(${i}) { position:sticky; left:${left}px; z-index:4; background:var(--surface); }\n`;
+    left += widths[i - 1];
+  }
+  if (n > 0) {
+    css += `.tasks-scroll th:nth-child(${n}), .tasks-scroll td:nth-child(${n}) { box-shadow:2px 0 6px rgba(20,24,40,0.10); }\n`;
+    css += `.tasks-scroll thead th:nth-child(-n+${n}) { z-index:6; }\n`;
+  }
+  let styleEl = document.getElementById("freeze-style");
+  if (!styleEl) { styleEl = document.createElement("style"); styleEl.id = "freeze-style"; document.head.appendChild(styleEl); }
+  styleEl.textContent = css;
+  const select = document.getElementById("freeze-select");
+  if (select) select.value = String(n);
+}
+document.getElementById("freeze-select").addEventListener("change", (e) => applyFreeze(e.target.value));
+
+async function addItem(opts = {}) {
   const maxNo = currentTasks.reduce((m, t) => Math.max(m, t.task_no || 0), 0);
   const { data: newTask, error } = await supabaseClient.from("job_tasks").insert({
     job_id: jobId,
@@ -673,8 +1146,8 @@ async function addItem() {
     status: "pending",
   }).select().single();
   if (error) {
-    alert("Couldn't add item: " + error.message);
-    return;
+    if (!opts.silent) alert("Couldn't add item: " + error.message);
+    return null;
   }
   currentTasks.push(newTask);
   if (currentTasks.length === 1) {
@@ -683,7 +1156,9 @@ async function addItem() {
     document.getElementById("tasks-tbody").insertAdjacentHTML("beforeend", taskRowHtml(newTask, currentTasks.length - 1));
   }
   updateHeaderStats();
-  cellAt(currentTasks.length - 1, 0)?.focus();
+  const newCell = cellAt(currentTasks.length - 1, 0);
+  if (opts.focusFirstCell !== false) newCell?.focus();
+  return newCell;
 }
 
 async function removeItem(taskId) {
@@ -698,7 +1173,8 @@ async function removeItem(taskId) {
   renderTasksTable(); // row indices shift, so just re-render cleanly
 }
 
-document.getElementById("add-item-btn").addEventListener("click", addItem);
+document.getElementById("add-item-btn").addEventListener("click", () => addItem());
+applyFreeze(localStorage.getItem("jobGridFreezeCols") || 0);
 
 renderSidebar("dashboard");
 (async () => {
