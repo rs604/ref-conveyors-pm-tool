@@ -384,7 +384,7 @@ function renderOrdersTable() {
     <table class="ob-table">
       <thead><tr>
         <th>Sr. No</th><th>Order No.</th><th>Customer</th><th>Description</th><th>Client PO No.</th>
-        <th class="ob-nowrap">PO Date</th><th class="ob-nowrap">Delivery Date</th><th class="ob-nowrap">Pending Days</th><th>PO File</th><th>Status</th><th></th>
+        <th class="ob-nowrap">PO Date</th><th class="ob-nowrap">Delivery Days</th><th class="ob-nowrap">Delivery Date</th><th class="ob-nowrap">Pending Days</th><th>PO File</th><th>Status</th><th></th>
       </tr></thead>
       <tbody>
         ${rows.map((o, i) => `
@@ -395,6 +395,7 @@ function renderOrdersTable() {
             <td><div class="ob-desc" data-desc-cell>${escapeHtml(o.description_of_material || "—")}</div></td>
             <td>${escapeHtml(o.client_po_number || "—")}</td>
             <td class="ob-nowrap">${formatDate(o.po_date)}</td>
+            <td class="ob-nowrap">${o.delivery_days != null ? o.delivery_days + " day" + (o.delivery_days === 1 ? "" : "s") : "—"}</td>
             <td class="ob-nowrap">${formatDate(o.delivery_date)}</td>
             <td class="ob-nowrap">${pendingDaysCellHtml(o)}</td>
             <td class="ob-po-cell">${o.po_copy_path
