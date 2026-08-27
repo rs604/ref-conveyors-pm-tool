@@ -181,7 +181,7 @@
         </div>
         <div id="cj-template-note" class="template-note"></div>
         <div class="modal-actions">
-          <button type="submit" class="btn-primary" id="submit-create-job">Create Job Card</button>
+          <button type="submit" class="btn-primary" id="submit-create-job">Create JC</button>
           <button type="button" class="btn-secondary" id="cancel-create-job">Cancel</button>
         </div>
       </form>
@@ -288,8 +288,8 @@ function renderOrdersTable() {
               <div class="ob-actions-cell">
                 <button type="button" class="btn-secondary btn-sm" data-edit-order="${o.id}">Edit</button>
                 ${o.jobs
-                  ? `<a class="btn-secondary btn-sm" href="job.html?id=${o.jobs.id}">View Job Card</a>`
-                  : `<button type="button" class="btn-primary btn-sm" data-create-job="${o.id}">Create Job Card</button>`}
+                  ? `<a class="btn-secondary btn-sm" href="job.html?id=${o.jobs.id}">View JC</a>`
+                  : `<button type="button" class="btn-primary btn-sm" data-create-job="${o.id}">Create JC</button>`}
               </div>
             </td>
           </tr>`).join("")}
@@ -528,7 +528,7 @@ document.getElementById("create-job-form").addEventListener("submit", async (e) 
   if (jobNoError) {
     errorBox.textContent = "Couldn't generate a job number: " + jobNoError.message;
     errorBox.style.display = "block";
-    btn.textContent = "Create Job Card"; btn.disabled = false;
+    btn.textContent = "Create JC"; btn.disabled = false;
     return;
   }
 
@@ -546,7 +546,7 @@ document.getElementById("create-job-form").addEventListener("submit", async (e) 
   if (jobError) {
     errorBox.textContent = "Couldn't create job: " + jobError.message;
     errorBox.style.display = "block";
-    btn.textContent = "Create Job Card"; btn.disabled = false;
+    btn.textContent = "Create JC"; btn.disabled = false;
     return;
   }
 
