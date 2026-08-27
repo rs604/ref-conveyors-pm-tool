@@ -25,8 +25,12 @@
 .stat-chip-supervisor{margin-left:auto; font-size:12px; color:var(--text-muted); white-space:nowrap;}
 
 .task-no{color:var(--text-faint); font-weight:600; font-size:11.5px; text-align:center;}
-.date-pair{font-size:12px; color:var(--text-muted); white-space:normal; padding:6px 8px;}
+/* Actual Start / Actual Finish — darker than the old muted tone so they
+   read as real recorded dates rather than placeholder text, and flagged
+   red when the actual date landed after what was planned. */
+.date-pair{font-size:12px; color:var(--text); font-weight:600; white-space:normal; padding:6px 8px;}
 .date-pair b{color:var(--text); font-weight:600;}
+.tasks-scroll td.date-pair.late{background:var(--warn-soft, #fdecea) !important; color:var(--warn-text, #c0392b) !important;}
 .delay-tag{font-size:11px; color:var(--warn-text); font-weight:600;}
 
 /* ---- Project status controls (now in the page header's middle column) ---- */
@@ -53,17 +57,11 @@
 .app-shell-fill{height:100vh;}
 
 /* ---- Spreadsheet-style task grid ---- */
-.tasks-toolbar{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:9px 14px; border-bottom:1px solid var(--border); background:var(--surface-2);}
-.tasks-toolbar-left{display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-muted);}
-.tasks-toolbar select{font-size:12px; padding:4px 8px; border-radius:6px; border:1px solid var(--border-strong); background:var(--surface); color:var(--text);}
-/* Icon-only chevron toggle — no text label — to keep the collapsed strip as
-   thin as possible and reclaim the most vertical space for the grid. */
-.toolbar-collapse-btn{background:none; border:none; color:var(--text-faint); font-size:13px; line-height:1; padding:4px 9px; border-radius:6px;}
-.toolbar-collapse-btn:hover{background:var(--surface); color:var(--text);}
-.toolbar-collapsed-strip{padding:2px 14px; border-bottom:1px solid var(--border); background:var(--surface-2); display:flex; justify-content:flex-end;}
-.toolbar-collapsed-strip button{background:none; border:none; color:var(--text-faint); font-size:13px; line-height:1; padding:2px 9px; border-radius:5px;}
-.toolbar-collapsed-strip button:hover{background:var(--surface); color:var(--text);}
-.tasks-panel{background:var(--surface); border:1px solid var(--border); box-shadow:0 1px 2px rgba(20,24,40,0.03); overflow:hidden; display:flex; flex-direction:column; flex:1; min-height:0;}
+/* No border of its own — the stats-strip above already carries a
+   border-bottom, so this panel sitting flush against it (via
+   .content-flush's zeroed padding) relies on that single hairline instead
+   of stacking a second one, matching order-book.html's flush treatment. */
+.tasks-panel{background:var(--surface); overflow:hidden; display:flex; flex-direction:column; flex:1; min-height:0;}
 .tasks-scroll{flex:1; min-height:220px; overflow:auto; position:relative; user-select:none;
   scrollbar-width:thin; scrollbar-color:var(--border-strong) var(--surface-2);
   /* Own compositing layer: without this, Chromium can lag repainting
@@ -83,7 +81,7 @@
    grid with narrow columns (the No./Delay columns are ~40-70px), and the
    shared padding alone would eat most of that width, forcing headers like
    "No." or "Delay" to wrap letter-by-letter even at their default size. */
-.tasks-scroll thead th{position:relative; position:sticky; top:0; z-index:5; padding:8px 6px; white-space:normal; overflow-wrap:break-word; vertical-align:bottom; border-right:1px solid var(--border-strong); border-bottom:1px solid var(--border-strong); background:var(--surface-2);}
+.tasks-scroll thead th{position:relative; position:sticky; top:0; z-index:5; padding:8px 6px; white-space:normal; overflow-wrap:break-word; text-align:center; vertical-align:middle; border-right:1px solid var(--border-strong); border-bottom:1px solid var(--border-strong); background:var(--surface-2);}
 .tasks-scroll thead th:last-child{border-right:none;}
 .tasks-scroll td{padding:0; vertical-align:middle; border-right:1px solid var(--border-strong);}
 .tasks-scroll td:last-child{border-right:none;}
@@ -98,6 +96,13 @@
 .col-resize-handle{position:absolute; top:0; right:-3px; width:6px; height:100%; cursor:col-resize; z-index:8;}
 .col-resize-handle:hover{background:var(--accent);}
 
+/* Every column after the first 3 frozen ones (No./Item/Description) reads
+   as a compact spreadsheet value rather than left-flowing prose, so its
+   text (and the cell divs' own content) is centered both ways. td already
+   carries vertical-align:middle globally (see .tasks-scroll td below) —
+   this just adds the horizontal half, inherited down into the child .cell
+   divs and read-only spans alike. */
+.tasks-scroll td:not(:nth-child(-n+3)){text-align:center;}
 .tasks-scroll th:nth-child(1), .tasks-scroll td:nth-child(1){width:42px;}
 .tasks-scroll th:nth-child(2), .tasks-scroll td:nth-child(2){width:180px;}
 .tasks-scroll th:nth-child(3), .tasks-scroll td:nth-child(3){width:180px;}
@@ -131,9 +136,11 @@
 .cell:focus{box-shadow:inset 0 0 0 2px var(--accent); background:var(--accent-soft); z-index:2;}
 .cell.editing{box-shadow:inset 0 0 0 2px var(--accent); background:var(--surface); white-space:normal; overflow:visible; z-index:6;}
 .cell:empty::before, .cell.combo-cell:empty::before{content:"\2014"; color:var(--text-faint);}
-.num-cell{text-align:right;}
-.combo-cell{padding-right:20px;}
-.combo-caret{position:absolute; right:6px; top:8px; font-size:8px; color:var(--text-faint); pointer-events:none;}
+.num-cell{text-align:center;}
+.combo-cell{padding-right:22px;}
+/* Sized to match the (now-removed) freeze-column select's native dropdown
+   arrow, measured directly against it before that control was removed. */
+.combo-caret{position:absolute; right:7px; top:50%; transform:translateY(-50%); font-size:13px; line-height:1; color:var(--text-muted); pointer-events:none;}
 .cell.editing .combo-caret{display:none;}
 
 /* ---- Read-only cells ---- */
@@ -153,6 +160,11 @@
 @keyframes rangeFlash{0%{outline:2px dashed var(--accent); outline-offset:-2px;}100%{outline:2px dashed transparent; outline-offset:-2px;}}
 
 .cell-input{width:100%; border:none; outline:none; background:transparent; font:inherit; color:var(--text); padding:0; box-sizing:border-box;}
+/* Wrapped-text editing (Item/Description) — a textarea instead of a
+   single-line input so a cell that's showing wrapped text keeps showing it
+   wrapped while being edited (Google Sheets-style), auto-growing as more
+   text is typed via the JS autosizeTextarea() helper. */
+.cell-textarea{display:block; resize:none; overflow:hidden; white-space:pre-wrap; word-wrap:break-word;}
 /* position:fixed (not absolute) so the list escapes the .tasks-scroll
    container's overflow:auto clipping — an absolutely-positioned list would
    get cut off for any row near the bottom (or edge) of the scroll viewport.
@@ -198,21 +210,6 @@ kbd{background:var(--surface-2); border:1px solid var(--border-strong); border-b
     <div class="stats-strip" id="stats-strip"><span class="muted">Loading…</span></div>
     <main class="content content-flush">
       <div class="tasks-panel">
-        <div class="tasks-toolbar" id="tasks-toolbar">
-          <div class="tasks-toolbar-left">
-            <label for="freeze-select">Freeze columns</label>
-            <select id="freeze-select">
-              <option value="0">None</option>
-              <option value="1">First 1</option>
-              <option value="2">First 2</option>
-              <option value="3">First 3</option>
-            </select>
-          </div>
-          <button type="button" class="toolbar-collapse-btn" id="toolbar-collapse-btn" title="Collapse toolbar" aria-label="Collapse toolbar">&#9662;</button>
-        </div>
-        <div class="toolbar-collapsed-strip" id="toolbar-collapsed-strip" hidden>
-          <button type="button" id="toolbar-expand-btn" title="Show toolbar" aria-label="Show toolbar">&#9652;</button>
-        </div>
         <div class="tasks-scroll" id="tasks-scroll">
           <div class="empty-state" id="tasks-loading"><p>Loading…</p></div>
         </div>
@@ -390,6 +387,14 @@ function labelFor(type, value) {
   return value || "";
 }
 
+// Grows a cell-editing <textarea> to fit its content (used for the
+// wrapped-text Item/Description edit mode) — reset height first so
+// scrollHeight reflects a shrink as well as a grow.
+function autosizeTextarea(ta) {
+  ta.style.height = "auto";
+  ta.style.height = ta.scrollHeight + "px";
+}
+
 function escapeAttr(str) {
   return String(str ?? "")
     .replace(/&/g, "&amp;")
@@ -410,7 +415,17 @@ function cellHtml(rowIdx, colIdx, t) {
   return `<div class="cell ${extraClass}" tabindex="0" data-row="${rowIdx}" data-col="${colIdx}" data-id="${t.id}" data-field="${field}" data-type="${col.type}" data-value="${escapeAttr(rawValue)}">${escapeHtml(String(display))}${caret}</div>`;
 }
 
+// Plain ISO "YYYY-MM-DD" strings sort lexicographically in exactly
+// chronological order, so a simple string compare is enough here — no need
+// to parse either side into a Date. Only flags a cell once BOTH dates are
+// known; an actual date recorded before a plan even exists isn't "late".
+function isLateDate(actualDateStr, plannedDateStr) {
+  return !!(actualDateStr && plannedDateStr && actualDateStr > plannedDateStr);
+}
+
 function taskRowHtml(t, rowIdx) {
+  const startLate = isLateDate(t.actual_start_date, t.planned_start_date);
+  const finishLate = isLateDate(t.actual_finish_date, t.planned_finish_date);
   return `
     <tr data-task-row="${t.id}">
       <td class="ro-cell task-no">${t.task_no}</td>
@@ -421,8 +436,8 @@ function taskRowHtml(t, rowIdx) {
       <td>${cellHtml(rowIdx, 4, t)}</td>
       <td>${cellHtml(rowIdx, 5, t)}</td>
       <td>${cellHtml(rowIdx, 6, t)}</td>
-      <td class="ro-cell date-pair actual-start-cell">${formatDate(t.actual_start_date)}</td>
-      <td class="ro-cell date-pair actual-finish-cell">${formatDate(t.actual_finish_date)}</td>
+      <td class="ro-cell date-pair actual-start-cell${startLate ? " late" : ""}">${formatDate(t.actual_start_date)}</td>
+      <td class="ro-cell date-pair actual-finish-cell${finishLate ? " late" : ""}">${formatDate(t.actual_finish_date)}</td>
       <td class="ro-cell delay-cell">${t.delay_days > 0 ? `<span class="delay-tag">${t.delay_days}d</span>` : "—"}</td>
       <td>${cellHtml(rowIdx, 7, t)}</td>
     </tr>`;
@@ -478,9 +493,15 @@ function updateRowComputedCells(t) {
   const row = document.querySelector(`tr[data-task-row="${t.id}"]`);
   if (!row) return;
   const startCell = row.querySelector(".actual-start-cell");
-  if (startCell) startCell.textContent = formatDate(t.actual_start_date);
+  if (startCell) {
+    startCell.textContent = formatDate(t.actual_start_date);
+    startCell.classList.toggle("late", isLateDate(t.actual_start_date, t.planned_start_date));
+  }
   const finishCell = row.querySelector(".actual-finish-cell");
-  if (finishCell) finishCell.textContent = formatDate(t.actual_finish_date);
+  if (finishCell) {
+    finishCell.textContent = formatDate(t.actual_finish_date);
+    finishCell.classList.toggle("late", isLateDate(t.actual_finish_date, t.planned_finish_date));
+  }
   const delayCell = row.querySelector(".delay-cell");
   if (delayCell) delayCell.innerHTML = t.delay_days > 0 ? `<span class="delay-tag">${t.delay_days}d</span>` : "—";
 }
@@ -609,9 +630,9 @@ function enterEditMode(cell, opts = {}) {
   const currentValue = cell.dataset.value || "";
   cell.classList.add("editing");
 
-  if (type === "text" || type === "number") {
+  if (type === "number") {
     const seed = opts.initialChar !== undefined ? opts.initialChar : currentValue;
-    cell.innerHTML = `<input class="cell-input" type="${type === "number" ? "number" : "text"}" ${type === "number" ? 'step="any"' : ""} value="${escapeAttr(seed)}">`;
+    cell.innerHTML = `<input class="cell-input" type="number" step="any" value="${escapeAttr(seed)}">`;
     const input = cell.querySelector(".cell-input");
     input.focus();
     // Always place the cursor at the end rather than selecting the whole
@@ -621,6 +642,19 @@ function enterEditMode(cell, opts = {}) {
     // some browsers, so swallow that — focus() alone still lands you in the
     // field, just without a guaranteed caret position.)
     try { input.setSelectionRange(seed.length, seed.length); } catch (e) { /* number input, ignore */ }
+  } else if (type === "text") {
+    // A wrapping <textarea> rather than a single-line <input> — a cell
+    // showing wrapped text (Item/Description) should keep looking wrapped
+    // while being edited instead of collapsing to one scrolling line,
+    // matching Google Sheets. escapeHtml (not escapeAttr) because the seed
+    // is textarea CONTENT, not an attribute value.
+    const seed = opts.initialChar !== undefined ? opts.initialChar : currentValue;
+    cell.innerHTML = `<textarea class="cell-input cell-textarea" rows="1">${escapeHtml(seed)}</textarea>`;
+    const input = cell.querySelector(".cell-input");
+    autosizeTextarea(input);
+    input.addEventListener("input", () => autosizeTextarea(input));
+    input.focus();
+    input.setSelectionRange(seed.length, seed.length);
   } else if (type === "date") {
     cell.innerHTML = `<input class="cell-input" type="date" value="${escapeAttr(currentValue)}">`;
     cell.querySelector(".cell-input").focus();
@@ -1305,9 +1339,10 @@ async function insertRowRelative(taskId, position) {
 }
 
 // ---- Freeze columns ----
+// Freeze is hardcoded to the first 3 columns (No./Item/Description) —
+// there's no longer a toolbar control for it, so this always runs with n=3.
 function applyFreeze(n) {
   n = Math.max(0, Math.min(3, parseInt(n, 10) || 0));
-  localStorage.setItem("jobGridFreezeCols", String(n));
   let css = "", left = 0;
   for (let i = 1; i <= n; i++) {
     // Explicit background-color (not just the `background` shorthand) plus
@@ -1328,10 +1363,7 @@ function applyFreeze(n) {
   let styleEl = document.getElementById("freeze-style");
   if (!styleEl) { styleEl = document.createElement("style"); styleEl.id = "freeze-style"; document.head.appendChild(styleEl); }
   styleEl.textContent = css;
-  const select = document.getElementById("freeze-select");
-  if (select) select.value = String(n);
 }
-document.getElementById("freeze-select").addEventListener("change", (e) => applyFreeze(e.target.value));
 
 async function addItem(opts = {}) {
   const maxNo = currentTasks.reduce((m, t) => Math.max(m, t.task_no || 0), 0);
@@ -1369,18 +1401,8 @@ async function removeItem(taskId) {
   renderTasksTable(); // row indices shift, so just re-render cleanly
 }
 
-applyFreeze(localStorage.getItem("jobGridFreezeCols") || 0);
+applyFreeze(3);
 applyColWidths();
-
-// ---- Collapsible toolbar ----
-function setToolbarCollapsed(collapsed) {
-  document.getElementById("tasks-toolbar").hidden = collapsed;
-  document.getElementById("toolbar-collapsed-strip").hidden = !collapsed;
-  try { localStorage.setItem("jobGridToolbarCollapsed", collapsed ? "1" : "0"); } catch (e) { /* ignore */ }
-}
-document.getElementById("toolbar-collapse-btn").addEventListener("click", () => setToolbarCollapsed(true));
-document.getElementById("toolbar-expand-btn").addEventListener("click", () => setToolbarCollapsed(false));
-setToolbarCollapsed(localStorage.getItem("jobGridToolbarCollapsed") === "1");
 
 // ---- Keyboard shortcuts modal (Shift+?) ----
 const shortcutsModal = document.getElementById("shortcuts-modal");
