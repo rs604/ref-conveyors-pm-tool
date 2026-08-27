@@ -186,6 +186,10 @@
             <label for="cj_product_type_id">Product Type</label>
             <select id="cj_product_type_id" required><option value="">Loading…</option></select>
           </div>
+          <div class="field" id="cj-product-name-field" hidden>
+            <label for="cj_product_name">Product Name</label>
+            <input id="cj_product_name" type="text" placeholder="e.g. Belt Conveyor for Cement Bags">
+          </div>
           <div class="field">
             <label for="cj_supervisor_id">Supervisor</label>
             <select id="cj_supervisor_id"><option value="">Unassigned</option></select>
@@ -599,6 +603,16 @@ function updateCjTemplateNote() {
   } else {
     note.textContent = `This will create a blank job card with the standard task columns (item, qty, UOM, dates, etc.) — add tasks manually on the job page, same as any other job. ${prefixNote}`;
   }
+
+  // A product type with no templates (e.g. "Blank Sheet") has no name of its
+  // own to show on the job — ask for one up front instead of leaving the
+  // job's product tag reading the generic template-type name everywhere.
+  const nameField = document.getElementById("cj-product-name-field");
+  const nameInput = document.getElementById("cj_product_name");
+  const needsName = !!ptId && count === 0;
+  nameField.hidden = !needsName;
+  nameInput.required = needsName;
+  if (!needsName) nameInput.value = "";
 }
 document.getElementById("cj_product_type_id").addEventListener("change", updateCjTemplateNote);
 
@@ -636,10 +650,17 @@ document.getElementById("create-job-form").addEventListener("submit", async (e) 
   const supervisor_id = document.getElementById("cj_supervisor_id").value || null;
   const planned_start_date = document.getElementById("cj_planned_start_date").value;
   const target_date = document.getElementById("cj_target_date").value;
+  const needsProductName = (templateCountByType[product_type_id] || 0) === 0;
+  const custom_product_name = document.getElementById("cj_product_name").value.trim();
   errorBox.style.display = "none";
 
   if (!product_type_id) {
     errorBox.textContent = "Please choose a product type.";
+    errorBox.style.display = "block";
+    return;
+  }
+  if (needsProductName && !custom_product_name) {
+    errorBox.textContent = "This product type has no template — please enter a product name.";
     errorBox.style.display = "block";
     return;
   }
@@ -660,6 +681,7 @@ document.getElementById("create-job-form").addEventListener("submit", async (e) 
     job_no,
     customer_name: order.customer_name,
     product_type_id,
+    custom_product_name: needsProductName ? custom_product_name : null,
     supervisor_id,
     planned_start_date: planned_start_date || null,
     target_date: target_date || null,

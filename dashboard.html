@@ -115,7 +115,7 @@ renderSidebar("dashboard");
       <tr onclick="window.location.href='job.html?id=${job.id}'" style="cursor:pointer;">
         <td class="job-no">${escapeHtml(job.job_no)}</td>
         <td>${escapeHtml(job.customer_name)}</td>
-        <td><span class="tag">${escapeHtml(job.product_types?.name || "—")}</span></td>
+        <td><span class="tag">${escapeHtml(job.custom_product_name || job.product_types?.name || "—")}</span></td>
         <td>${completed} / ${total} tasks</td>
         <td>${formatDate(job.planned_start_date)}</td>
         <td>${statusPill}</td>

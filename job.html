@@ -290,7 +290,11 @@ function renderHeader() {
   const completed = currentTasks.filter(t => t.status === "completed").length;
 
   document.getElementById("ph-title").textContent = `${job.job_no} — ${job.customer_name}`;
-  document.getElementById("ph-subtitle").textContent = job.product_types?.name || "—";
+  // A job created from a template-less product type (e.g. "Blank Sheet")
+  // carries its own custom_product_name instead — show that in place of
+  // the generic template-type name, since "Blank Sheet" itself isn't a
+  // meaningful product label to display here.
+  document.getElementById("ph-subtitle").textContent = job.custom_product_name || job.product_types?.name || "—";
 
   document.getElementById("ph-middle").innerHTML = `
     ${projectStatusPillHtml(job.project_status)}
