@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Order Book — Ref Conveyors Project Tracker</title>
+<link rel="stylesheet" href="assets/styles.css">
+<style>
+.ob-table th{text-align:left; padding:11px 16px; font-size:11.5px; text-transform:uppercase; letter-spacing:0.03em; color:var(--text-muted); border-bottom:1px solid var(--border); white-space:nowrap;}
+.ob-table td{padding:11px 16px; font-size:13px; border-bottom:1px solid var(--border); vertical-align:top;}
+.ob-table tr:last-child td{border-bottom:none;}
+.ob-desc{max-width:260px; white-space:pre-wrap; color:var(--text-muted); font-size:12.5px;}
+.status-awaiting{background:var(--surface-2); color:var(--text-muted);}
+.template-note{background:var(--accent-soft); color:var(--accent-text); border-radius:8px; padding:10px 12px; font-size:12.5px; margin-top:4px; display:none;}
+.modal-actions{display:flex; gap:10px; margin-top:20px;}
+.po-file-row{display:flex; align-items:center; gap:10px; font-size:12.5px;}
+.po-file-row a{font-weight:600;}
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <div id="sidebar-root"></div>
+  <div class="main-area">
+    <header class="page-header">
+      <div class="ph-titles">
+        <h1>Order Book</h1>
+        <p class="muted">Every punched PO, and whether it has become a job card yet.</p>
+      </div>
+      <div id="header-user-root"></div>
+    </header>
+    <main class="content">
+      <div class="stats-row" id="stats-row">
+        <div id="stats-cards" style="display:contents"></div>
+        <button type="button" class="btn-primary btn-new-project" id="open-new-order">+ Punch New PO</button>
+      </div>
+      <div class="table-card" id="orders-card">
+        <div class="empty-state"><p>Loading…</p></div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Punch New PO -->
+<div class="modal-overlay" id="new-order-modal" hidden>
+  <div class="modal-box">
+    <div class="modal-head">
+      <h2>Punch New PO</h2>
+      <button type="button" class="modal-close" id="close-new-order" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div id="order-error-box" class="auth-error" style="display:none;"></div>
+      <form id="new-order-form">
+        <div class="modal-grid">
+          <div class="field span-2">
+            <label for="order_customer_name">Customer Name</label>
+            <input id="order_customer_name" type="text" required>
+          </div>
+          <div class="field">
+            <label for="order_client_po_number">Client's PO Number</label>
+            <input id="order_client_po_number" type="text">
+          </div>
+          <div class="field span-3">
+            <label for="order_description">Description of Material</label>
+            <textarea id="order_description" rows="3" style="width:100%; padding:9px 12px; border:1px solid var(--border-strong); border-radius:8px; font-size:13px; font-family:inherit; color:var(--text); background:var(--surface);"></textarea>
+          </div>
+          <div class="field">
+            <label for="order_po_date">PO Date</label>
+            <input id="order_po_date" type="date">
+          </div>
+          <div class="field">
+            <label for="order_delivery_days">Delivery In Days</label>
+            <input id="order_delivery_days" type="number" min="0">
+          </div>
+          <div class="field">
+            <label for="order_delivery_reference">Delivery Time Starts From</label>
+            <select id="order_delivery_reference">
+              <option value="po_date">PO Date</option>
+              <option value="advance_payment_date">Advance Payment Date</option>
+            </select>
+          </div>
+          <div class="field" id="order_advance_date_field" style="display:none;">
+            <label for="order_advance_payment_date">Advance Payment Date</label>
+            <input id="order_advance_payment_date" type="date">
+          </div>
+          <div class="field span-2">
+            <label for="order_po_copy">Attach PO Copy</label>
+            <input id="order_po_copy" type="file" accept=".pdf,.jpg,.jpeg,.png">
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button type="submit" class="btn-primary" id="submit-new-order">Punch PO</button>
+          <button type="button" class="btn-secondary" id="cancel-new-order">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Create Job Card from Order -->
+<div class="modal-overlay" id="create-job-modal" hidden>
+  <div class="modal-box">
+    <div class="modal-head">
+      <h2>Create Job Card</h2>
+      <button type="button" class="modal-close" id="close-create-job" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div id="create-job-error-box" class="auth-error" style="display:none;"></div>
+      <form id="create-job-form">
+        <input type="hidden" id="cj_order_id">
+        <div class="modal-grid">
+          <div class="field span-2">
+            <label>Customer Name</label>
+            <input id="cj_customer_name" type="text" disabled>
+          </div>
+          <div class="field">
+            <label for="cj_product_type_id">Product Type</label>
+            <select id="cj_product_type_id" required><option value="">Loading…</option></select>
+          </div>
+          <div class="field">
+            <label for="cj_supervisor_id">Supervisor</label>
+            <select id="cj_supervisor_id"><option value="">Unassigned</option></select>
+          </div>
+          <div class="field">
+            <label for="cj_planned_start_date">Planned Start Date</label>
+            <input id="cj_planned_start_date" type="date" required>
+          </div>
+          <div class="field">
+            <label for="cj_target_date">Target Date</label>
+            <input id="cj_target_date" type="date">
+          </div>
+        </div>
+        <div id="cj-template-note" class="template-note"></div>
+        <div class="modal-actions">
+          <button type="submit" class="btn-primary" id="submit-create-job">Create Job Card</button>
+          <button type="button" class="btn-secondary" id="cancel-create-job">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="assets/supabase-client.js"></script>
+<script src="assets/auth.js"></script>
+<script>
+renderSidebar("order-book");
+
+const ORDER_STATUS_PILL = {
+  not_started: ["status-notstarted", "Not Started"],
+  in_progress: ["status-ontrack", "In Progress"],
+  on_hold: ["status-delayed", "On Hold"],
+  completed: ["status-completed", "Completed"],
+};
+
+let allOrders = [];
+let templateCountByType = {};
+let productTypeById = {};
+
+function addDays(dateStr, days) {
+  const d = new Date(dateStr + "T00:00:00");
+  d.setDate(d.getDate() + Math.round(days));
+  return localDateStr(d);
+}
+
+function statusPillForOrder(order) {
+  if (!order.jobs) return `<span class="status-pill status-awaiting"><span class="dot"></span>Awaiting Job Card</span>`;
+  const [cls, label] = ORDER_STATUS_PILL[order.jobs.project_status] || ORDER_STATUS_PILL.not_started;
+  return `<span class="status-pill ${cls}"><span class="dot"></span>${label}</span>`;
+}
+
+async function loadOrders() {
+  const { data, error } = await supabaseClient
+    .from("orders")
+    .select("*, jobs(id, job_no, project_status)")
+    .order("created_at", { ascending: false });
+  if (error) {
+    document.getElementById("orders-card").innerHTML =
+      `<div class="empty-state"><h3>Couldn't load Order Book</h3><p>${escapeHtml(error.message)}</p></div>`;
+    return;
+  }
+  allOrders = data || [];
+  renderStats();
+  renderOrdersTable();
+}
+
+function renderStats() {
+  const total = allOrders.length;
+  const awaiting = allOrders.filter(o => !o.jobs).length;
+  const completed = allOrders.filter(o => o.jobs && o.jobs.project_status === "completed").length;
+  document.getElementById("stats-cards").innerHTML = `
+    <div class="stat-card"><div class="stat-label">Total Orders</div><div class="stat-value">${total}</div></div>
+    <div class="stat-card"><div class="stat-label">Awaiting Job Card</div><div class="stat-value stat-warn">${awaiting}</div></div>
+    <div class="stat-card"><div class="stat-label">Completed</div><div class="stat-value stat-success">${completed}</div></div>
+  `;
+}
+
+function renderOrdersTable() {
+  const card = document.getElementById("orders-card");
+  if (!allOrders.length) {
+    card.innerHTML = `
+      <div class="empty-state">
+        <h3>No orders yet</h3>
+        <p>Punch your first PO to start tracking it.</p>
+        <button type="button" class="btn-primary" onclick="openNewOrderModal()">+ Punch New PO</button>
+      </div>`;
+    return;
+  }
+  card.innerHTML = `
+    <table class="ob-table">
+      <thead><tr>
+        <th>Order No.</th><th>Customer</th><th>Description</th><th>Client PO No.</th>
+        <th>PO Date</th><th>Delivery Date</th><th>Status</th><th></th>
+      </tr></thead>
+      <tbody>
+        ${allOrders.map(o => `
+          <tr>
+            <td>${escapeHtml(o.order_no)}</td>
+            <td>${escapeHtml(o.customer_name)}</td>
+            <td class="ob-desc">${escapeHtml(o.description_of_material || "—")}</td>
+            <td>${escapeHtml(o.client_po_number || "—")}</td>
+            <td>${formatDate(o.po_date)}</td>
+            <td>${formatDate(o.delivery_date)}</td>
+            <td>${statusPillForOrder(o)}</td>
+            <td>
+              ${o.jobs
+                ? `<a class="btn-secondary btn-sm" href="job.html?id=${o.jobs.id}">View Job Card</a>`
+                : `<button type="button" class="btn-primary btn-sm" data-create-job="${o.id}">Create Job Card</button>`}
+            </td>
+          </tr>`).join("")}
+      </tbody>
+    </table>`;
+
+  card.querySelectorAll("[data-create-job]").forEach(btn => {
+    btn.addEventListener("click", () => openCreateJobModal(btn.dataset.createJob));
+  });
+}
+
+// ---- Punch New PO modal ----
+function openNewOrderModal() {
+  document.getElementById("new-order-form").reset();
+  document.getElementById("order-error-box").style.display = "none";
+  document.getElementById("order_advance_date_field").style.display = "none";
+  document.getElementById("new-order-modal").hidden = false;
+}
+function closeNewOrderModal() { document.getElementById("new-order-modal").hidden = true; }
+
+document.getElementById("open-new-order").addEventListener("click", openNewOrderModal);
+document.getElementById("close-new-order").addEventListener("click", closeNewOrderModal);
+document.getElementById("cancel-new-order").addEventListener("click", closeNewOrderModal);
+document.getElementById("new-order-modal").addEventListener("click", (e) => {
+  if (e.target.id === "new-order-modal") closeNewOrderModal();
+});
+document.getElementById("order_delivery_reference").addEventListener("change", (e) => {
+  document.getElementById("order_advance_date_field").style.display = e.target.value === "advance_payment_date" ? "block" : "none";
+});
+
+document.getElementById("new-order-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const errorBox = document.getElementById("order-error-box");
+  const btn = document.getElementById("submit-new-order");
+  errorBox.style.display = "none";
+  btn.textContent = "Punching…";
+  btn.disabled = true;
+
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  const { data: order_no, error: noError } = await supabaseClient.rpc("next_order_no");
+  if (noError) {
+    errorBox.textContent = "Couldn't generate an order number: " + noError.message;
+    errorBox.style.display = "block";
+    btn.textContent = "Punch PO"; btn.disabled = false;
+    return;
+  }
+
+  const payload = {
+    order_no,
+    customer_name: document.getElementById("order_customer_name").value.trim(),
+    client_po_number: document.getElementById("order_client_po_number").value.trim() || null,
+    description_of_material: document.getElementById("order_description").value.trim() || null,
+    po_date: document.getElementById("order_po_date").value || null,
+    delivery_days: document.getElementById("order_delivery_days").value ? Number(document.getElementById("order_delivery_days").value) : null,
+    delivery_start_reference: document.getElementById("order_delivery_reference").value,
+    advance_payment_date: document.getElementById("order_advance_payment_date").value || null,
+    created_by: session.user.id,
+  };
+
+  const { data: order, error: orderError } = await supabaseClient.from("orders").insert(payload).select().single();
+  if (orderError) {
+    errorBox.textContent = "Couldn't punch PO: " + orderError.message;
+    errorBox.style.display = "block";
+    btn.textContent = "Punch PO"; btn.disabled = false;
+    return;
+  }
+
+  const file = document.getElementById("order_po_copy").files[0];
+  if (file) {
+    const path = `${order.id}/${file.name}`;
+    const { error: uploadError } = await supabaseClient.storage.from("po-copies").upload(path, file, { upsert: true });
+    if (!uploadError) {
+      await supabaseClient.from("orders").update({ po_copy_path: path }).eq("id", order.id);
+    }
+  }
+
+  btn.textContent = "Punch PO"; btn.disabled = false;
+  closeNewOrderModal();
+  loadOrders();
+});
+
+// ---- Create Job Card modal ----
+async function loadCreateJobDropdowns() {
+  const [{ data: productTypes }, { data: supervisors }, { data: templates }] = await Promise.all([
+    supabaseClient.from("product_types").select("id, name, code_prefix").order("name"),
+    supabaseClient.from("supervisors").select("id, name").order("name"),
+    supabaseClient.from("task_templates").select("product_type_id"),
+  ]);
+  templateCountByType = {};
+  (templates || []).forEach(t => {
+    templateCountByType[t.product_type_id] = (templateCountByType[t.product_type_id] || 0) + 1;
+  });
+  productTypeById = Object.fromEntries((productTypes || []).map(pt => [pt.id, pt]));
+
+  const ptSelect = document.getElementById("cj_product_type_id");
+  ptSelect.innerHTML = (productTypes || []).map(pt =>
+    `<option value="${pt.id}">${escapeHtml(pt.name)}${templateCountByType[pt.id] ? "" : " (no template yet)"}</option>`
+  ).join("") || `<option value="">No product types found</option>`;
+
+  const svSelect = document.getElementById("cj_supervisor_id");
+  svSelect.innerHTML = `<option value="">Unassigned</option>` + (supervisors || []).map(s =>
+    `<option value="${s.id}">${escapeHtml(s.name)}</option>`
+  ).join("");
+
+  updateCjTemplateNote();
+}
+
+function updateCjTemplateNote() {
+  const select = document.getElementById("cj_product_type_id");
+  const ptId = select.value;
+  const note = document.getElementById("cj-template-note");
+  const count = templateCountByType[ptId] || 0;
+  const prefix = (productTypeById[ptId] && productTypeById[ptId].code_prefix) || "JOB";
+  const prefixNote = `Job number will be auto-generated as ${prefix}-0001 style.`;
+  note.style.display = "block";
+  note.textContent = count > 0
+    ? `This will create ${count} task${count > 1 ? "s" : ""} from the "${select.selectedOptions[0]?.textContent}" template. ${prefixNote}`
+    : `No task template loaded for this product type yet — the job will be created with no tasks. ${prefixNote}`;
+}
+document.getElementById("cj_product_type_id").addEventListener("change", updateCjTemplateNote);
+
+async function openCreateJobModal(orderId) {
+  const order = allOrders.find(o => o.id === orderId);
+  document.getElementById("create-job-form").reset();
+  document.getElementById("create-job-error-box").style.display = "none";
+  document.getElementById("cj_order_id").value = orderId;
+  document.getElementById("cj_customer_name").value = order.customer_name;
+  document.getElementById("cj_planned_start_date").value = localDateStr();
+  document.getElementById("cj_target_date").value = order.delivery_date || "";
+  await loadCreateJobDropdowns();
+  document.getElementById("create-job-modal").hidden = false;
+}
+function closeCreateJobModal() { document.getElementById("create-job-modal").hidden = true; }
+document.getElementById("close-create-job").addEventListener("click", closeCreateJobModal);
+document.getElementById("cancel-create-job").addEventListener("click", closeCreateJobModal);
+document.getElementById("create-job-modal").addEventListener("click", (e) => {
+  if (e.target.id === "create-job-modal") closeCreateJobModal();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    if (!document.getElementById("new-order-modal").hidden) closeNewOrderModal();
+    if (!document.getElementById("create-job-modal").hidden) closeCreateJobModal();
+  }
+});
+
+document.getElementById("create-job-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const errorBox = document.getElementById("create-job-error-box");
+  const btn = document.getElementById("submit-create-job");
+  const orderId = document.getElementById("cj_order_id").value;
+  const order = allOrders.find(o => o.id === orderId);
+  const product_type_id = document.getElementById("cj_product_type_id").value;
+  const supervisor_id = document.getElementById("cj_supervisor_id").value || null;
+  const planned_start_date = document.getElementById("cj_planned_start_date").value;
+  const target_date = document.getElementById("cj_target_date").value;
+  errorBox.style.display = "none";
+
+  if (!product_type_id) {
+    errorBox.textContent = "Please choose a product type.";
+    errorBox.style.display = "block";
+    return;
+  }
+
+  btn.textContent = "Creating…";
+  btn.disabled = true;
+
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  const { data: job_no, error: jobNoError } = await supabaseClient.rpc("next_job_no", { p_product_type_id: product_type_id });
+  if (jobNoError) {
+    errorBox.textContent = "Couldn't generate a job number: " + jobNoError.message;
+    errorBox.style.display = "block";
+    btn.textContent = "Create Job Card"; btn.disabled = false;
+    return;
+  }
+
+  const { data: job, error: jobError } = await supabaseClient.from("jobs").insert({
+    job_no,
+    customer_name: order.customer_name,
+    product_type_id,
+    supervisor_id,
+    planned_start_date: planned_start_date || null,
+    target_date: target_date || null,
+    created_by: session.user.id,
+    order_id: orderId,
+  }).select().single();
+
+  if (jobError) {
+    errorBox.textContent = "Couldn't create job: " + jobError.message;
+    errorBox.style.display = "block";
+    btn.textContent = "Create Job Card"; btn.disabled = false;
+    return;
+  }
+
+  const { data: templates } = await supabaseClient
+    .from("task_templates").select("*").eq("product_type_id", product_type_id).order("task_no");
+
+  if (templates && templates.length) {
+    let cursor = planned_start_date || localDateStr();
+    const taskRows = templates.map(t => {
+      const start = cursor;
+      const finish = addDays(start, Math.max((t.default_duration_days || 1) - 1, 0));
+      cursor = addDays(finish, 1);
+      return {
+        job_id: job.id, task_no: t.task_no, item_name: t.item_name, task_description: t.task_description,
+        qty: t.default_qty, uom: t.default_uom, planned_start_date: start, planned_finish_date: finish,
+        duration_days: t.default_duration_days,
+      };
+    });
+    await supabaseClient.from("job_tasks").insert(taskRows);
+  }
+
+  window.location.href = "job.html?id=" + job.id;
+});
+
+(async () => {
+  const auth = await requireAuth();
+  if (!auth) return;
+  renderHeaderUser(auth.profile);
+  await loadOrders();
+})();
+</script>
+</body>
+</html>

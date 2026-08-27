@@ -21,6 +21,9 @@
       <div class="tabs">
         <button type="button" class="tab-btn active" data-tab="supervisors">Supervisors</button>
         <button type="button" class="tab-btn" data-tab="prefixes">Job No. Prefixes</button>
+        <button type="button" class="tab-btn" data-tab="departments">Departments</button>
+        <button type="button" class="tab-btn" data-tab="designations">Designations</button>
+        <button type="button" class="tab-btn" data-tab="categories">Employee Categories</button>
       </div>
 
       <div class="tab-panel active" id="panel-supervisors">
@@ -36,6 +39,28 @@
         <div class="table-card" id="prefixes-card">
           <div class="empty-state"><p>Loading…</p></div>
         </div>
+      </div>
+
+      <div class="tab-panel" id="panel-departments">
+        <p class="muted" style="margin:0 0 16px;">Starting list extracted one-time from the HR system — manage it independently here from now on.</p>
+        <div class="page-actions" style="margin-bottom:16px;">
+          <button type="button" class="btn-primary" id="open-add-lookup" data-lookup="departments">+ Add Department</button>
+        </div>
+        <div class="table-card" id="departments-card"><div class="empty-state"><p>Loading…</p></div></div>
+      </div>
+
+      <div class="tab-panel" id="panel-designations">
+        <div class="page-actions" style="margin-bottom:16px;">
+          <button type="button" class="btn-primary" id="open-add-designation" data-lookup="designations">+ Add Designation</button>
+        </div>
+        <div class="table-card" id="designations-card"><div class="empty-state"><p>Loading…</p></div></div>
+      </div>
+
+      <div class="tab-panel" id="panel-categories">
+        <div class="page-actions" style="margin-bottom:16px;">
+          <button type="button" class="btn-primary" id="open-add-category" data-lookup="employee_categories">+ Add Category</button>
+        </div>
+        <div class="table-card" id="categories-card"><div class="empty-state"><p>Loading…</p></div></div>
       </div>
     </main>
   </div>
@@ -57,6 +82,28 @@
         <div class="modal-actions">
           <button type="submit" class="btn-primary" id="submit-supervisor">Add Supervisor</button>
           <button type="button" class="btn-secondary" id="cancel-add-supervisor">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="add-lookup-modal" hidden>
+  <div class="modal-box" style="max-width:420px;">
+    <div class="modal-head">
+      <h2 id="lookup-modal-title">Add Item</h2>
+      <button type="button" class="modal-close" id="close-add-lookup" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div id="lookup-error-box" class="auth-error" style="display:none;"></div>
+      <form id="add-lookup-form">
+        <div class="field">
+          <label for="lookup_name" id="lookup-name-label">Name</label>
+          <input id="lookup_name" type="text" required autofocus>
+        </div>
+        <div class="modal-actions">
+          <button type="submit" class="btn-primary" id="submit-lookup">Add</button>
+          <button type="button" class="btn-secondary" id="cancel-add-lookup">Cancel</button>
         </div>
       </form>
     </div>
@@ -199,11 +246,112 @@ async function loadPrefixes() {
   });
 }
 
+// ---- Lookup tables: Departments / Designations / Employee Categories ----
+const LOOKUP_META = {
+  departments:        { card: "departments-card",  label: "Department",         placeholder: "e.g. Fabrication" },
+  designations:       { card: "designations-card",  label: "Designation",        placeholder: "e.g. Welder" },
+  employee_categories:{ card: "categories-card",     label: "Employee Category",  placeholder: "e.g. Staff" },
+};
+let activeLookupTable = null;
+
+async function loadLookup(table) {
+  const meta = LOOKUP_META[table];
+  const card = document.getElementById(meta.card);
+  const { data, error } = await supabaseClient.from(table).select("*").order("name");
+  if (error) {
+    card.innerHTML = `<div class="empty-state"><h3>Couldn't load</h3><p>${escapeHtml(error.message)}</p></div>`;
+    return;
+  }
+  if (!data.length) {
+    card.innerHTML = `<div class="empty-state"><h3>No ${escapeHtml(meta.label.toLowerCase())}s yet</h3><p>Add one to make it available in dropdowns.</p></div>`;
+    return;
+  }
+  card.innerHTML = data.map((row) => `
+    <div class="list-row" data-id="${row.id}">
+      <div>
+        <div class="list-row-name">${escapeHtml(row.name)}</div>
+        <div class="list-row-sub">${row.is_active ? "Active" : "Inactive"}</div>
+      </div>
+      <button type="button" class="btn-secondary btn-sm" data-toggle-active="${row.id}" data-active="${row.is_active}">
+        ${row.is_active ? "Deactivate" : "Activate"}
+      </button>
+    </div>`).join("");
+
+  card.querySelectorAll("[data-toggle-active]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const id = btn.dataset.toggleActive;
+      const nextActive = btn.dataset.active !== "true";
+      btn.disabled = true;
+      const { error: updError } = await supabaseClient.from(table).update({ is_active: nextActive }).eq("id", id);
+      if (updError) {
+        alert("Couldn't update: " + updError.message);
+        btn.disabled = false;
+        return;
+      }
+      loadLookup(table);
+    });
+  });
+}
+
+function openAddLookupModal(table) {
+  activeLookupTable = table;
+  const meta = LOOKUP_META[table];
+  document.getElementById("lookup-modal-title").textContent = "Add " + meta.label;
+  document.getElementById("lookup-name-label").textContent = meta.label + " Name";
+  document.getElementById("lookup_name").placeholder = meta.placeholder;
+  document.getElementById("submit-lookup").textContent = "Add " + meta.label;
+  document.getElementById("add-lookup-form").reset();
+  document.getElementById("lookup-error-box").style.display = "none";
+  document.getElementById("add-lookup-modal").hidden = false;
+}
+function closeAddLookupModal() {
+  document.getElementById("add-lookup-modal").hidden = true;
+  activeLookupTable = null;
+}
+document.querySelectorAll("[data-lookup]").forEach((btn) => {
+  btn.addEventListener("click", () => openAddLookupModal(btn.dataset.lookup));
+});
+document.getElementById("close-add-lookup").addEventListener("click", closeAddLookupModal);
+document.getElementById("cancel-add-lookup").addEventListener("click", closeAddLookupModal);
+document.getElementById("add-lookup-modal").addEventListener("click", (e) => {
+  if (e.target.id === "add-lookup-modal") closeAddLookupModal();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !document.getElementById("add-lookup-modal").hidden) closeAddLookupModal();
+});
+
+document.getElementById("add-lookup-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const table = activeLookupTable;
+  const name = document.getElementById("lookup_name").value.trim();
+  const errorBox = document.getElementById("lookup-error-box");
+  const btn = document.getElementById("submit-lookup");
+  errorBox.style.display = "none";
+  btn.disabled = true;
+
+  const { error } = await supabaseClient.from(table).insert({ name });
+
+  btn.disabled = false;
+  if (error) {
+    errorBox.textContent = "Couldn't add: " + error.message;
+    errorBox.style.display = "block";
+    return;
+  }
+  closeAddLookupModal();
+  loadLookup(table);
+});
+
 (async () => {
   const auth = await requireAuth();
   if (!auth) return;
   renderHeaderUser(auth.profile);
-  await Promise.all([loadSupervisors(), loadPrefixes()]);
+  await Promise.all([
+    loadSupervisors(),
+    loadPrefixes(),
+    loadLookup("departments"),
+    loadLookup("designations"),
+    loadLookup("employee_categories"),
+  ]);
 })();
 </script>
 </body>

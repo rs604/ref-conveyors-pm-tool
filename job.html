@@ -370,7 +370,7 @@ const STATUS_OPTIONS = [
 const STATUS_LABEL = Object.fromEntries(STATUS_OPTIONS.map(o => [o.value, o.label]));
 
 function doerOptions() {
-  return [{ value: "", label: "Unassigned" }, ...profilesList.map(p => ({ value: p.id, label: p.full_name }))];
+  return [{ value: "", label: "Unassigned" }, ...profilesList.map(p => ({ value: p.id, label: p.name }))];
 }
 
 function optionsForType(type) {
@@ -385,7 +385,7 @@ function labelFor(type, value) {
   if (type === "combo-doer") {
     if (!value) return "Unassigned";
     const p = profilesList.find(p => p.id === value);
-    return p ? p.full_name : "Unassigned";
+    return p ? p.name : "Unassigned";
   }
   return value || "";
 }
@@ -1413,9 +1413,9 @@ renderSidebar("dashboard");
     return;
   }
 
-  const [{ data: job, error }, { data: profiles }, { data: supervisors }, { data: tasks }] = await Promise.all([
+  const [{ data: job, error }, { data: employeesForDoer }, { data: supervisors }, { data: tasks }] = await Promise.all([
     supabaseClient.from("jobs").select("*, product_types(name)").eq("id", jobId).single(),
-    supabaseClient.from("profiles").select("id, full_name"),
+    supabaseClient.from("employees").select("id, name").eq("is_active", true).order("name"),
     supabaseClient.from("supervisors").select("id, name"),
     supabaseClient.from("job_tasks").select("*").eq("job_id", jobId).order("task_no"),
   ]);
@@ -1427,7 +1427,7 @@ renderSidebar("dashboard");
   }
 
   currentJob = job;
-  profilesList = profiles || [];
+  profilesList = employeesForDoer || [];
   supervisorNameById = Object.fromEntries((supervisors || []).map(s => [s.id, s.name]));
   currentTasks = tasks || [];
 

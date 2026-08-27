@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Employees — Ref Conveyors Project Tracker</title>
+<link rel="stylesheet" href="assets/styles.css">
+<style>
+.emp-filters{display:flex; gap:10px; margin-bottom:16px;}
+.emp-filters select,.emp-filters input{padding:9px 12px; border:1px solid var(--border-strong); border-radius:8px; font-size:13px; background:var(--surface); color:var(--text);}
+.emp-filters input{flex:1; max-width:280px;}
+table.emp-table{width:100%; border-collapse:collapse;}
+table.emp-table th{text-align:left; padding:11px 16px; font-size:11.5px; text-transform:uppercase; letter-spacing:0.03em; color:var(--text-muted); border-bottom:1px solid var(--border);}
+table.emp-table td{padding:11px 16px; font-size:13px; border-bottom:1px solid var(--border); vertical-align:middle;}
+table.emp-table tr:last-child td{border-bottom:none;}
+.login-yes{color:var(--success-text); font-weight:600; font-size:12px;}
+.login-no{color:var(--text-faint); font-size:12px;}
+.inactive-row td{opacity:0.5;}
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <div id="sidebar-root"></div>
+  <div class="main-area">
+    <header class="page-header">
+      <div class="ph-titles">
+        <h1>Employees</h1>
+        <p class="muted">The people who can be assigned work — separate from who can log in.</p>
+      </div>
+      <div id="header-user-root"></div>
+    </header>
+    <main class="content">
+      <div class="page-actions" style="margin-bottom:16px;">
+        <button type="button" class="btn-primary" id="open-add-employee">+ Add Employee</button>
+      </div>
+      <div class="emp-filters">
+        <input type="text" id="emp-search" placeholder="Search name, code, designation…">
+        <select id="emp-dept-filter"><option value="">All Departments</option></select>
+        <select id="emp-status-filter">
+          <option value="">All Status</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+      </div>
+      <div class="table-card" id="employees-card">
+        <div class="empty-state"><p>Loading…</p></div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<div class="modal-overlay" id="employee-modal" hidden>
+  <div class="modal-box">
+    <div class="modal-head">
+      <h2 id="employee-modal-title">Add Employee</h2>
+      <button type="button" class="modal-close" id="close-employee-modal" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div id="employee-error-box" class="auth-error" style="display:none;"></div>
+      <form id="employee-form">
+        <input type="hidden" id="employee_id">
+        <div class="modal-grid">
+          <div class="field">
+            <label for="employee_code">Employee Code</label>
+            <input id="employee_code" type="text" placeholder="e.g. REF-EMP-014">
+          </div>
+          <div class="field span-2">
+            <label for="employee_name">Name</label>
+            <input id="employee_name" type="text" required>
+          </div>
+          <div class="field">
+            <label for="employee_department">Department</label>
+            <select id="employee_department"><option value="">—</option></select>
+          </div>
+          <div class="field">
+            <label for="employee_designation">Designation</label>
+            <select id="employee_designation"><option value="">—</option></select>
+          </div>
+          <div class="field">
+            <label for="employee_category">Employee Category</label>
+            <select id="employee_category"><option value="">—</option></select>
+          </div>
+          <div class="field span-2">
+            <label for="employee_profile">Linked Software Login (optional)</label>
+            <select id="employee_profile"><option value="">No login access</option></select>
+          </div>
+          <div class="field">
+            <label for="employee_active">Status</label>
+            <select id="employee_active">
+              <option value="true">Active</option>
+              <option value="false">Inactive</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button type="submit" class="btn-primary" id="submit-employee">Add Employee</button>
+          <button type="button" class="btn-secondary" id="cancel-employee">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="assets/supabase-client.js"></script>
+<script src="assets/auth.js"></script>
+<script>
+renderSidebar("employees");
+
+let allEmployees = [];
+let departmentsList = [];
+let designationsList = [];
+let categoriesList = [];
+let profilesList = [];
+
+function fillSelect(select, items, placeholder) {
+  select.innerHTML = `<option value="">${placeholder}</option>` +
+    items.map(i => `<option value="${i.id}">${escapeHtml(i.name)}</option>`).join("");
+}
+
+async function loadLookups() {
+  const [{ data: depts }, { data: desigs }, { data: cats }, { data: profiles }] = await Promise.all([
+    supabaseClient.from("departments").select("id, name").eq("is_active", true).order("name"),
+    supabaseClient.from("designations").select("id, name").eq("is_active", true).order("name"),
+    supabaseClient.from("employee_categories").select("id, name").eq("is_active", true).order("name"),
+    supabaseClient.from("profiles").select("id, full_name"),
+  ]);
+  departmentsList = depts || [];
+  designationsList = desigs || [];
+  categoriesList = cats || [];
+  profilesList = profiles || [];
+
+  fillSelect(document.getElementById("employee_department"), departmentsList, "—");
+  fillSelect(document.getElementById("employee_designation"), designationsList, "—");
+  fillSelect(document.getElementById("employee_category"), categoriesList, "—");
+
+  const deptFilter = document.getElementById("emp-dept-filter");
+  deptFilter.innerHTML = `<option value="">All Departments</option>` +
+    departmentsList.map(d => `<option value="${d.id}">${escapeHtml(d.name)}</option>`).join("");
+}
+
+function profileOptionsHtml(linkedProfileIds, currentValue) {
+  const available = profilesList.filter(p => p.id === currentValue || !linkedProfileIds.has(p.id));
+  return `<option value="">No login access</option>` +
+    available.map(p => `<option value="${p.id}">${escapeHtml(p.full_name)}</option>`).join("");
+}
+
+function renderEmployeesTable() {
+  const search = document.getElementById("emp-search").value.trim().toLowerCase();
+  const deptId = document.getElementById("emp-dept-filter").value;
+  const status = document.getElementById("emp-status-filter").value;
+  const card = document.getElementById("employees-card");
+
+  let rows = allEmployees;
+  if (deptId) rows = rows.filter(e => e.department_id === deptId);
+  if (status === "active") rows = rows.filter(e => e.is_active);
+  if (status === "inactive") rows = rows.filter(e => !e.is_active);
+  if (search) {
+    rows = rows.filter(e =>
+      (e.name || "").toLowerCase().includes(search) ||
+      (e.employee_code || "").toLowerCase().includes(search) ||
+      (e.designations?.name || "").toLowerCase().includes(search));
+  }
+
+  if (!rows.length) {
+    card.innerHTML = `<div class="empty-state"><h3>No employees found</h3><p>Add your first employee, or adjust the filters.</p></div>`;
+    return;
+  }
+
+  card.innerHTML = `
+    <table class="emp-table">
+      <thead><tr><th>Code</th><th>Name</th><th>Department</th><th>Designation</th><th>Category</th><th>Login</th><th></th></tr></thead>
+      <tbody>
+        ${rows.map(e => `
+          <tr class="${e.is_active ? "" : "inactive-row"}">
+            <td>${escapeHtml(e.employee_code || "—")}</td>
+            <td>${escapeHtml(e.name)}</td>
+            <td>${escapeHtml(e.departments?.name || "—")}</td>
+            <td>${escapeHtml(e.designations?.name || "—")}</td>
+            <td>${escapeHtml(e.employee_categories?.name || "—")}</td>
+            <td>${e.profile_id ? `<span class="login-yes">Has login</span>` : `<span class="login-no">No login</span>`}</td>
+            <td style="text-align:right;"><button type="button" class="btn-secondary btn-sm" data-edit-employee="${e.id}">Edit</button></td>
+          </tr>`).join("")}
+      </tbody>
+    </table>`;
+
+  card.querySelectorAll("[data-edit-employee]").forEach(btn => {
+    btn.addEventListener("click", () => openEmployeeModal(btn.dataset.editEmployee));
+  });
+}
+
+async function loadEmployees() {
+  const { data, error } = await supabaseClient
+    .from("employees")
+    .select("*, departments(name), designations(name), employee_categories(name)")
+    .order("name");
+  if (error) {
+    document.getElementById("employees-card").innerHTML =
+      `<div class="empty-state"><h3>Couldn't load employees</h3><p>${escapeHtml(error.message)}</p></div>`;
+    return;
+  }
+  allEmployees = data || [];
+  renderEmployeesTable();
+}
+
+function openEmployeeModal(employeeId) {
+  const form = document.getElementById("employee-form");
+  form.reset();
+  document.getElementById("employee-error-box").style.display = "none";
+  document.getElementById("employee_id").value = "";
+
+  const linkedProfileIds = new Set(allEmployees.filter(e => e.profile_id).map(e => e.profile_id));
+
+  if (employeeId) {
+    const emp = allEmployees.find(e => e.id === employeeId);
+    document.getElementById("employee-modal-title").textContent = "Edit Employee";
+    document.getElementById("submit-employee").textContent = "Save Changes";
+    document.getElementById("employee_id").value = emp.id;
+    document.getElementById("employee_code").value = emp.employee_code || "";
+    document.getElementById("employee_name").value = emp.name || "";
+    document.getElementById("employee_department").value = emp.department_id || "";
+    document.getElementById("employee_designation").value = emp.designation_id || "";
+    document.getElementById("employee_category").value = emp.employee_category_id || "";
+    document.getElementById("employee_profile").innerHTML = profileOptionsHtml(linkedProfileIds, emp.profile_id);
+    document.getElementById("employee_profile").value = emp.profile_id || "";
+    document.getElementById("employee_active").value = String(emp.is_active);
+  } else {
+    document.getElementById("employee-modal-title").textContent = "Add Employee";
+    document.getElementById("submit-employee").textContent = "Add Employee";
+    document.getElementById("employee_profile").innerHTML = profileOptionsHtml(linkedProfileIds, null);
+  }
+  document.getElementById("employee-modal").hidden = false;
+}
+function closeEmployeeModal() { document.getElementById("employee-modal").hidden = true; }
+
+document.getElementById("open-add-employee").addEventListener("click", () => openEmployeeModal(null));
+document.getElementById("close-employee-modal").addEventListener("click", closeEmployeeModal);
+document.getElementById("cancel-employee").addEventListener("click", closeEmployeeModal);
+document.getElementById("employee-modal").addEventListener("click", (e) => {
+  if (e.target.id === "employee-modal") closeEmployeeModal();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !document.getElementById("employee-modal").hidden) closeEmployeeModal();
+});
+
+["emp-search", "emp-dept-filter", "emp-status-filter"].forEach(id => {
+  document.getElementById(id).addEventListener("input", renderEmployeesTable);
+  document.getElementById(id).addEventListener("change", renderEmployeesTable);
+});
+
+document.getElementById("employee-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const id = document.getElementById("employee_id").value || null;
+  const payload = {
+    employee_code: document.getElementById("employee_code").value.trim() || null,
+    name: document.getElementById("employee_name").value.trim(),
+    department_id: document.getElementById("employee_department").value || null,
+    designation_id: document.getElementById("employee_designation").value || null,
+    employee_category_id: document.getElementById("employee_category").value || null,
+    profile_id: document.getElementById("employee_profile").value || null,
+    is_active: document.getElementById("employee_active").value === "true",
+  };
+  const errorBox = document.getElementById("employee-error-box");
+  const btn = document.getElementById("submit-employee");
+  errorBox.style.display = "none";
+  btn.disabled = true;
+
+  const { error } = id
+    ? await supabaseClient.from("employees").update(payload).eq("id", id)
+    : await supabaseClient.from("employees").insert(payload);
+
+  btn.disabled = false;
+  if (error) {
+    errorBox.textContent = "Couldn't save: " + error.message;
+    errorBox.style.display = "block";
+    return;
+  }
+  closeEmployeeModal();
+  loadEmployees();
+});
+
+(async () => {
+  const auth = await requireAuth();
+  if (!auth) return;
+  renderHeaderUser(auth.profile);
+  await loadLookups();
+  await loadEmployees();
+})();
+</script>
+</body>
+</html>

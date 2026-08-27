@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Roles &amp; Permissions — Ref Conveyors Project Tracker</title>
+<link rel="stylesheet" href="assets/styles.css">
+<style>
+.rp-shell{display:flex; gap:0; background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden; height:calc(100vh - 190px); min-height:480px;}
+.rp-people{width:300px; flex-shrink:0; border-right:1px solid var(--border); display:flex; flex-direction:column;}
+.rp-people-filters{padding:14px; border-bottom:1px solid var(--border); display:flex; flex-direction:column; gap:8px;}
+.rp-people-filters input,.rp-people-filters select{padding:8px 10px; border:1px solid var(--border-strong); border-radius:8px; font-size:12.5px; background:var(--surface); color:var(--text);}
+.rp-people-list{flex:1; overflow-y:auto;}
+.rp-person{display:flex; align-items:center; gap:10px; padding:11px 14px; border-bottom:1px solid var(--border); cursor:pointer;}
+.rp-person:hover{background:var(--surface-2);}
+.rp-person.active{background:var(--accent-soft);}
+.rp-person-info{flex:1; min-width:0;}
+.rp-person-name{font-weight:600; font-size:12.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.rp-person-sub{font-size:11px; color:var(--text-faint); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.rp-badge{font-size:10.5px; font-weight:700; padding:3px 7px; border-radius:6px; white-space:nowrap;}
+.rp-badge.has{background:var(--success-soft); color:var(--success-text);}
+.rp-badge.no{background:var(--surface-2); color:var(--text-faint);}
+.rp-detail{flex:1; display:flex; flex-direction:column; min-width:0;}
+.rp-detail-head{display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid var(--border);}
+.rp-detail-name{font-size:15px; font-weight:700;}
+.rp-detail-sub{font-size:12px; color:var(--text-muted); margin-top:2px;}
+.rp-detail-actions{display:flex; gap:8px;}
+.rp-grid-wrap{flex:1; overflow:auto;}
+table.rp-grid{width:100%; border-collapse:collapse;}
+table.rp-grid th{position:sticky; top:0; background:var(--surface-2); text-align:center; padding:10px 8px; font-size:10.5px; text-transform:uppercase; letter-spacing:0.03em; color:var(--text-muted); border-bottom:1px solid var(--border); z-index:1;}
+table.rp-grid th:first-child{text-align:left; padding-left:20px;}
+table.rp-grid td{padding:9px 8px; text-align:center; border-bottom:1px solid var(--border); font-size:12.5px;}
+table.rp-grid td:first-child{text-align:left; padding-left:20px;}
+tr.rp-module-row{background:var(--surface-2); font-weight:700;}
+tr.rp-module-row td:first-child{padding-top:11px; padding-bottom:11px;}
+tr.rp-subhead-row td:first-child{padding-left:34px; color:var(--text-muted);}
+.rp-dash{color:var(--text-faint);}
+.rp-empty-detail{flex:1; display:flex; align-items:center; justify-content:center; color:var(--text-faint); font-size:13px;}
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <div id="sidebar-root"></div>
+  <div class="main-area">
+    <header class="page-header">
+      <div class="ph-titles">
+        <h1>Roles &amp; Permissions</h1>
+        <p class="muted">Per-person access — grant or revoke any box, freely, no role floor.</p>
+      </div>
+      <div id="header-user-root"></div>
+    </header>
+    <main class="content">
+      <div class="rp-shell">
+        <div class="rp-people">
+          <div class="rp-people-filters">
+            <input type="text" id="rp-search" placeholder="Search name, code, designation…">
+            <select id="rp-dept-filter"><option value="">All Departments</option></select>
+            <select id="rp-status-filter">
+              <option value="">All Status</option>
+              <option value="has">Has Access</option>
+              <option value="no">No Access</option>
+            </select>
+          </div>
+          <div class="rp-people-list" id="rp-people-list"></div>
+        </div>
+        <div class="rp-detail" id="rp-detail">
+          <div class="rp-empty-detail">Select someone from the list to view or edit their permissions.</div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="assets/supabase-client.js"></script>
+<script src="assets/auth.js"></script>
+<script>
+renderSidebar("roles-permissions");
+
+const ACTIONS = ["view", "create", "edit", "approve", "delete"];
+const ACTION_LABELS = { view: "View", create: "Create", edit: "Edit", approve: "Approve", delete: "Delete" };
+
+let allEmployeesRP = [];
+let departmentsListRP = [];
+let allPermissions = [];
+let moduleTree = []; // [{module, subheads:[{sub_head, actions:{view:permId,...}}]}]
+let grantedByEmployee = {}; // employee_id -> Set(permission_id)
+let selectedEmployeeId = null;
+let workingSet = new Set(); // permission_ids currently checked for selectedEmployeeId (unsaved)
+let currentProfileId = null;
+
+function buildModuleTree() {
+  const byModule = {};
+  allPermissions.forEach(p => {
+    byModule[p.module] ||= {};
+    byModule[p.module][p.sub_head] ||= {};
+    byModule[p.module][p.sub_head][p.action] = p.id;
+  });
+  moduleTree = Object.keys(byModule).map(module => ({
+    module,
+    subheads: Object.keys(byModule[module]).map(sub_head => ({
+      sub_head,
+      actions: byModule[module][sub_head],
+    })),
+  }));
+}
+
+async function loadPermissionsAndGrants() {
+  const [{ data: perms }, { data: grants }] = await Promise.all([
+    supabaseClient.from("permissions").select("*"),
+    supabaseClient.from("employee_permissions").select("employee_id, permission_id"),
+  ]);
+  allPermissions = perms || [];
+  buildModuleTree();
+  grantedByEmployee = {};
+  (grants || []).forEach(g => {
+    (grantedByEmployee[g.employee_id] ||= new Set()).add(g.permission_id);
+  });
+}
+
+async function loadEmployeesRP() {
+  const [{ data: emps }, { data: depts }] = await Promise.all([
+    supabaseClient.from("employees").select("*, departments(name), designations(name)").eq("is_active", true).order("name"),
+    supabaseClient.from("departments").select("id, name").eq("is_active", true).order("name"),
+  ]);
+  allEmployeesRP = emps || [];
+  departmentsListRP = depts || [];
+  const deptFilter = document.getElementById("rp-dept-filter");
+  deptFilter.innerHTML = `<option value="">All Departments</option>` +
+    departmentsListRP.map(d => `<option value="${d.id}">${escapeHtml(d.name)}</option>`).join("");
+}
+
+function renderPeopleList() {
+  const search = document.getElementById("rp-search").value.trim().toLowerCase();
+  const deptId = document.getElementById("rp-dept-filter").value;
+  const status = document.getElementById("rp-status-filter").value;
+
+  let rows = allEmployeesRP;
+  if (deptId) rows = rows.filter(e => e.department_id === deptId);
+  if (status === "has") rows = rows.filter(e => e.profile_id);
+  if (status === "no") rows = rows.filter(e => !e.profile_id);
+  if (search) {
+    rows = rows.filter(e =>
+      (e.name || "").toLowerCase().includes(search) ||
+      (e.employee_code || "").toLowerCase().includes(search) ||
+      (e.designations?.name || "").toLowerCase().includes(search));
+  }
+
+  const list = document.getElementById("rp-people-list");
+  if (!rows.length) {
+    list.innerHTML = `<div class="empty-state"><p>No employees match.</p></div>`;
+    return;
+  }
+  list.innerHTML = rows.map(e => `
+    <div class="rp-person${e.id === selectedEmployeeId ? " active" : ""}" data-person="${e.id}">
+      <div class="avatar avatar-sm">${escapeHtml(initialsFrom(e.name))}</div>
+      <div class="rp-person-info">
+        <div class="rp-person-name">${escapeHtml(e.name)}</div>
+        <div class="rp-person-sub">${escapeHtml(e.designations?.name || "—")} · ${escapeHtml(e.departments?.name || "—")}</div>
+      </div>
+      <span class="rp-badge ${e.profile_id ? "has" : "no"}">${e.profile_id ? "HAS ACCESS" : "NO ACCESS"}</span>
+    </div>`).join("");
+
+  list.querySelectorAll("[data-person]").forEach(el => {
+    el.addEventListener("click", () => selectEmployee(el.dataset.person));
+  });
+}
+
+function selectEmployee(employeeId) {
+  selectedEmployeeId = employeeId;
+  workingSet = new Set(grantedByEmployee[employeeId] || []);
+  renderPeopleList();
+  renderDetail();
+}
+
+function cellHtml(permId) {
+  if (!permId) return `<span class="rp-dash">—</span>`;
+  const checked = workingSet.has(permId) ? "checked" : "";
+  return `<input type="checkbox" data-perm="${permId}" ${checked}>`;
+}
+
+function renderDetail() {
+  const detail = document.getElementById("rp-detail");
+  const emp = allEmployeesRP.find(e => e.id === selectedEmployeeId);
+  if (!emp) {
+    detail.innerHTML = `<div class="rp-empty-detail">Select someone from the list to view or edit their permissions.</div>`;
+    return;
+  }
+
+  const rowsHtml = moduleTree.map(({ module, subheads }) => {
+    const moduleRow = `
+      <tr class="rp-module-row">
+        <td>${escapeHtml(module)}</td>
+        ${ACTIONS.map(a => {
+          const ids = subheads.map(s => s.actions[a]).filter(Boolean);
+          if (!ids.length) return `<td><span class="rp-dash">—</span></td>`;
+          const allChecked = ids.every(id => workingSet.has(id));
+          return `<td><input type="checkbox" data-module-toggle="${module}" data-action="${a}" ${allChecked ? "checked" : ""}></td>`;
+        }).join("")}
+      </tr>`;
+    const subheadRows = subheads.map(s => `
+      <tr class="rp-subhead-row">
+        <td>${escapeHtml(s.sub_head)}</td>
+        ${ACTIONS.map(a => `<td>${cellHtml(s.actions[a])}</td>`).join("")}
+      </tr>`).join("");
+    return moduleRow + subheadRows;
+  }).join("");
+
+  detail.innerHTML = `
+    <div class="rp-detail-head">
+      <div>
+        <div class="rp-detail-name">${escapeHtml(emp.name)}</div>
+        <div class="rp-detail-sub">${escapeHtml(emp.designations?.name || "—")} · ${escapeHtml(emp.departments?.name || "—")}${emp.employee_code ? " · " + escapeHtml(emp.employee_code) : ""}</div>
+      </div>
+      <div class="rp-detail-actions">
+        <button type="button" class="btn-secondary btn-sm" id="rp-grant-all">Grant All</button>
+        <button type="button" class="btn-secondary btn-sm" id="rp-revoke-all">Revoke All</button>
+        <button type="button" class="btn-primary btn-sm" id="rp-save">Save</button>
+      </div>
+    </div>
+    <div class="rp-grid-wrap">
+      <table class="rp-grid">
+        <thead><tr><th>Module / Sub-head</th>${ACTIONS.map(a => `<th>${ACTION_LABELS[a]}</th>`).join("")}</tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+    </div>`;
+
+  detail.querySelectorAll('input[type="checkbox"][data-perm]').forEach(cb => {
+    cb.addEventListener("change", () => {
+      if (cb.checked) workingSet.add(cb.dataset.perm); else workingSet.delete(cb.dataset.perm);
+      renderDetail();
+    });
+  });
+  detail.querySelectorAll('input[data-module-toggle]').forEach(cb => {
+    cb.addEventListener("change", () => {
+      const module = cb.dataset.moduleToggle, action = cb.dataset.action;
+      const tree = moduleTree.find(m => m.module === module);
+      tree.subheads.forEach(s => {
+        const id = s.actions[action];
+        if (!id) return;
+        if (cb.checked) workingSet.add(id); else workingSet.delete(id);
+      });
+      renderDetail();
+    });
+  });
+  document.getElementById("rp-grant-all").addEventListener("click", () => {
+    allPermissions.forEach(p => workingSet.add(p.id));
+    renderDetail();
+  });
+  document.getElementById("rp-revoke-all").addEventListener("click", () => {
+    workingSet.clear();
+    renderDetail();
+  });
+  document.getElementById("rp-save").addEventListener("click", saveWorkingSet);
+}
+
+async function saveWorkingSet() {
+  const btn = document.getElementById("rp-save");
+  btn.textContent = "Saving…";
+  btn.disabled = true;
+
+  const original = grantedByEmployee[selectedEmployeeId] || new Set();
+  const toAdd = [...workingSet].filter(id => !original.has(id));
+  const toRemove = [...original].filter(id => !workingSet.has(id));
+
+  if (toAdd.length) {
+    const { error } = await supabaseClient.from("employee_permissions").insert(
+      toAdd.map(permission_id => ({ employee_id: selectedEmployeeId, permission_id, granted_by: currentProfileId }))
+    );
+    if (error) { alert("Couldn't save: " + error.message); btn.textContent = "Save"; btn.disabled = false; return; }
+  }
+  if (toRemove.length) {
+    const { error } = await supabaseClient.from("employee_permissions")
+      .delete().eq("employee_id", selectedEmployeeId).in("permission_id", toRemove);
+    if (error) { alert("Couldn't save: " + error.message); btn.textContent = "Save"; btn.disabled = false; return; }
+  }
+
+  grantedByEmployee[selectedEmployeeId] = new Set(workingSet);
+  btn.textContent = "Save";
+  btn.disabled = false;
+}
+
+["rp-search", "rp-dept-filter", "rp-status-filter"].forEach(id => {
+  document.getElementById(id).addEventListener("input", renderPeopleList);
+  document.getElementById(id).addEventListener("change", renderPeopleList);
+});
+
+(async () => {
+  const auth = await requireAuth();
+  if (!auth) return;
+  renderHeaderUser(auth.profile);
+  currentProfileId = auth.profile.id;
+  await Promise.all([loadPermissionsAndGrants(), loadEmployeesRP()]);
+  renderPeopleList();
+})();
+</script>
+</body>
+</html>
