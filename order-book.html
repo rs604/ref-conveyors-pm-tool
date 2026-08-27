@@ -6,10 +6,26 @@
 <title>Order Book — Ref Conveyors Project Tracker</title>
 <link rel="stylesheet" href="assets/styles.css">
 <style>
-.ob-table th{text-align:left; padding:11px 16px; font-size:11.5px; text-transform:uppercase; letter-spacing:0.03em; color:var(--text-muted); border-bottom:1px solid var(--border); white-space:nowrap;}
-.ob-table td{padding:11px 16px; font-size:13px; border-bottom:1px solid var(--border); vertical-align:top;}
-.ob-table tr:last-child td{border-bottom:none;}
-.ob-desc{max-width:260px; white-space:pre-wrap; color:var(--text-muted); font-size:12.5px;}
+/* Compact topbar: KPI chips + Punch New PO button on one line, replacing the
+   bulkier shared .stats-row/.stat-card block to reclaim vertical space for
+   the table (mirrors job.html's .stats-strip/.stat-chip pattern). */
+.ob-topbar{display:flex; align-items:center; justify-content:space-between; gap:16px; padding:10px 16px; margin-bottom:16px; border:1px solid var(--border); border-radius:12px; background:var(--surface); flex-wrap:wrap;}
+.ob-chip-group{display:flex; align-items:center; gap:24px; flex-wrap:wrap;}
+.ob-chip{display:flex; align-items:baseline; gap:6px; white-space:nowrap;}
+.ob-chip-label{font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-faint); font-weight:600;}
+.ob-chip-value{font-family:'Manrope',sans-serif; font-size:15px; font-weight:700; color:var(--text);}
+.ob-chip-value.stat-warn{color:var(--warn-text);}
+.ob-chip-value.stat-success{color:var(--success-text);}
+.btn-punch-po{justify-content:center; font-size:11.5px; padding:5px 10px; flex-shrink:0;}
+
+/* Spreadsheet-style grid table: full cell borders, dense rows, centered
+   headers, single-line truncated description. */
+.ob-table{border-collapse:collapse;}
+.ob-table th{text-align:center; vertical-align:middle; padding:8px 10px; font-size:11px; text-transform:uppercase; letter-spacing:0.03em; color:var(--text-muted); background:var(--surface-2); border:1px solid var(--border); white-space:nowrap;}
+.ob-table td{padding:7px 10px; font-size:12.5px; border:1px solid var(--border); vertical-align:middle;}
+.ob-table tbody tr:hover td{background:var(--surface-2);}
+.ob-sr{text-align:center; color:var(--text-faint); font-size:12px; width:44px;}
+.ob-desc{max-width:220px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--text-muted); font-size:12.5px;}
 .status-awaiting{background:var(--surface-2); color:var(--text-muted);}
 .template-note{background:var(--accent-soft); color:var(--accent-text); border-radius:8px; padding:10px 12px; font-size:12.5px; margin-top:4px; display:none;}
 .modal-actions{display:flex; gap:10px; margin-top:20px;}
@@ -29,9 +45,9 @@
       <div id="header-user-root"></div>
     </header>
     <main class="content">
-      <div class="stats-row" id="stats-row">
-        <div id="stats-cards" style="display:contents"></div>
-        <button type="button" class="btn-primary btn-new-project" id="open-new-order">+ Punch New PO</button>
+      <div class="ob-topbar">
+        <div class="ob-chip-group" id="stats-cards"></div>
+        <button type="button" class="btn-primary btn-punch-po" id="open-new-order">+ Punch New PO</button>
       </div>
       <div class="table-card" id="orders-card">
         <div class="empty-state"><p>Loading…</p></div>
@@ -57,23 +73,23 @@
           </div>
           <div class="field">
             <label for="order_client_po_number">Client's PO Number</label>
-            <input id="order_client_po_number" type="text">
+            <input id="order_client_po_number" type="text" required>
           </div>
           <div class="field span-3">
             <label for="order_description">Description of Material</label>
-            <textarea id="order_description" rows="3" style="width:100%; padding:9px 12px; border:1px solid var(--border-strong); border-radius:8px; font-size:13px; font-family:inherit; color:var(--text); background:var(--surface);"></textarea>
+            <textarea id="order_description" rows="3" required style="width:100%; padding:9px 12px; border:1px solid var(--border-strong); border-radius:8px; font-size:13px; font-family:inherit; color:var(--text); background:var(--surface);"></textarea>
           </div>
           <div class="field">
             <label for="order_po_date">PO Date</label>
-            <input id="order_po_date" type="date">
+            <input id="order_po_date" type="date" required>
           </div>
           <div class="field">
             <label for="order_delivery_days">Delivery In Days</label>
-            <input id="order_delivery_days" type="number" min="0">
+            <input id="order_delivery_days" type="number" min="0" required>
           </div>
           <div class="field">
             <label for="order_delivery_reference">Delivery Time Starts From</label>
-            <select id="order_delivery_reference">
+            <select id="order_delivery_reference" required>
               <option value="po_date">PO Date</option>
               <option value="advance_payment_date">Advance Payment Date</option>
             </select>
@@ -84,7 +100,7 @@
           </div>
           <div class="field span-2">
             <label for="order_po_copy">Attach PO Copy</label>
-            <input id="order_po_copy" type="file" accept=".pdf,.jpg,.jpeg,.png">
+            <input id="order_po_copy" type="file" accept=".pdf,.jpg,.jpeg,.png" required>
           </div>
         </div>
         <div class="modal-actions">
@@ -188,9 +204,9 @@ function renderStats() {
   const awaiting = allOrders.filter(o => !o.jobs).length;
   const completed = allOrders.filter(o => o.jobs && o.jobs.project_status === "completed").length;
   document.getElementById("stats-cards").innerHTML = `
-    <div class="stat-card"><div class="stat-label">Total Orders</div><div class="stat-value">${total}</div></div>
-    <div class="stat-card"><div class="stat-label">Awaiting Job Card</div><div class="stat-value stat-warn">${awaiting}</div></div>
-    <div class="stat-card"><div class="stat-label">Completed</div><div class="stat-value stat-success">${completed}</div></div>
+    <div class="ob-chip"><span class="ob-chip-label">Total Orders</span><span class="ob-chip-value">${total}</span></div>
+    <div class="ob-chip"><span class="ob-chip-label">Awaiting Job Card</span><span class="ob-chip-value stat-warn">${awaiting}</span></div>
+    <div class="ob-chip"><span class="ob-chip-label">Completed</span><span class="ob-chip-value stat-success">${completed}</span></div>
   `;
 }
 
@@ -208,15 +224,16 @@ function renderOrdersTable() {
   card.innerHTML = `
     <table class="ob-table">
       <thead><tr>
-        <th>Order No.</th><th>Customer</th><th>Description</th><th>Client PO No.</th>
+        <th>Sr. No</th><th>Order No.</th><th>Customer</th><th>Description</th><th>Client PO No.</th>
         <th>PO Date</th><th>Delivery Date</th><th>Status</th><th></th>
       </tr></thead>
       <tbody>
-        ${allOrders.map(o => `
+        ${allOrders.map((o, i) => `
           <tr>
+            <td class="ob-sr">${i + 1}</td>
             <td>${escapeHtml(o.order_no)}</td>
             <td>${escapeHtml(o.customer_name)}</td>
-            <td class="ob-desc">${escapeHtml(o.description_of_material || "—")}</td>
+            <td class="ob-desc" title="${escapeHtml(o.description_of_material || "")}">${escapeHtml(o.description_of_material || "—")}</td>
             <td>${escapeHtml(o.client_po_number || "—")}</td>
             <td>${formatDate(o.po_date)}</td>
             <td>${formatDate(o.delivery_date)}</td>
@@ -240,6 +257,7 @@ function openNewOrderModal() {
   document.getElementById("new-order-form").reset();
   document.getElementById("order-error-box").style.display = "none";
   document.getElementById("order_advance_date_field").style.display = "none";
+  document.getElementById("order_advance_payment_date").required = false;
   document.getElementById("new-order-modal").hidden = false;
 }
 function closeNewOrderModal() { document.getElementById("new-order-modal").hidden = true; }
@@ -251,7 +269,9 @@ document.getElementById("new-order-modal").addEventListener("click", (e) => {
   if (e.target.id === "new-order-modal") closeNewOrderModal();
 });
 document.getElementById("order_delivery_reference").addEventListener("change", (e) => {
-  document.getElementById("order_advance_date_field").style.display = e.target.value === "advance_payment_date" ? "block" : "none";
+  const isAdvance = e.target.value === "advance_payment_date";
+  document.getElementById("order_advance_date_field").style.display = isAdvance ? "block" : "none";
+  document.getElementById("order_advance_payment_date").required = isAdvance;
 });
 
 document.getElementById("new-order-form").addEventListener("submit", async (e) => {
