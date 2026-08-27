@@ -13,7 +13,6 @@
 .ph-left h1{margin:0; white-space:nowrap;}
 .ph-right{display:flex; align-items:center; gap:16px; flex-shrink:0;}
 .ph-divider{width:1px; align-self:stretch; background:var(--border-strong);}
-.ph-date{font-size:12.5px; font-weight:600; color:var(--text-muted); white-space:nowrap;}
 
 /* Rectangular box for the 3 KPI chips, sitting right next to the title. A
    vertical rule (not the flex gap) separates each chip from the next, so
@@ -54,13 +53,16 @@
 .ob-sr{text-align:center; color:var(--text-faint); font-size:12px; width:44px;}
 .ob-nowrap{white-space:nowrap;}
 
-/* Truncated description with a custom hover tooltip (native title="" can't
-   control width/wrapping) — the tooltip is width:100% of this cell, so it's
-   exactly as wide as the (truncated) description column, and wraps the full
-   text in full rather than clipping it. */
-.ob-desc{position:relative; max-width:220px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--text-muted); font-size:12.5px; cursor:default;}
-.ob-desc-tip{display:none; position:absolute; left:0; top:100%; width:100%; box-sizing:border-box; margin-top:6px; white-space:normal; word-wrap:break-word; background:var(--surface); border:1px solid var(--border-strong); border-radius:8px; padding:10px 12px; font-size:12.5px; line-height:1.5; color:var(--text); box-shadow:0 8px 24px rgba(20,24,40,0.18); z-index:30;}
-.ob-desc:hover .ob-desc-tip{display:block;}
+/* Truncated description. Click to see the full text (see .desc-popover
+   below) — a nested hover tooltip doesn't work here because .ob-desc's own
+   overflow:hidden (needed for the ellipsis) clips it, and the scrolling
+   table wrapper would clip it a second time even if that were fixed. The
+   popover is a single element appended to <body>, positioned in JS, so
+   nothing can clip it. */
+.ob-desc{max-width:220px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--text-muted); font-size:12.5px; cursor:pointer;}
+.ob-desc.ob-desc-clickable:hover{background:var(--surface-2); border-radius:4px;}
+.desc-popover{position:fixed; display:none; z-index:200; max-width:360px; background:var(--surface); border:1px solid var(--border-strong); border-radius:10px; padding:11px 14px; font-size:12.5px; line-height:1.55; color:var(--text); white-space:normal; word-wrap:break-word; box-shadow:0 12px 32px rgba(20,24,40,0.22);}
+.desc-popover.open{display:block;}
 
 .ob-actions-cell{display:flex; gap:6px; justify-content:flex-end; flex-wrap:nowrap;}
 .ob-actions-cell button, .ob-actions-cell a{white-space:nowrap;}
@@ -87,7 +89,6 @@
         <button type="button" class="btn-primary btn-punch-po" id="open-new-order">+ Punch New PO</button>
       </div>
       <div class="ph-right">
-        <div class="ph-date" id="ph-date"></div>
         <div class="ph-divider"></div>
         <div id="header-user-root"></div>
       </div>
@@ -213,14 +214,9 @@
 <script src="assets/auth.js"></script>
 <script>
 renderSidebar("order-book");
-
-// "26 Aug, 2026 (Wed)" next to the avatar. MONTH_ABBR comes from auth.js.
-const WEEKDAY_ABBR = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-function todayHeaderLabel() {
-  const d = new Date();
-  return `${d.getDate()} ${MONTH_ABBR[d.getMonth()]}, ${d.getFullYear()} (${WEEKDAY_ABBR[d.getDay()]})`;
-}
-document.getElementById("ph-date").textContent = todayHeaderLabel();
+// Today's date/day next to the avatar is now rendered by the shared
+// renderHeaderUser() in auth.js (shows on every page), so nothing page-
+// specific is needed here any more.
 
 const ORDER_STATUS_PILL = {
   not_started: ["status-notstarted", "Not Started"],
@@ -285,6 +281,67 @@ async function viewPoFile(path) {
   window.open(data.signedUrl, "_blank");
 }
 
+// ---- Description popover ----
+// A single element appended straight to <body>, positioned in JS. Because
+// it isn't nested inside the description cell or the scrolling table
+// wrapper, no ancestor's overflow:hidden/auto can clip it (that was exactly
+// what broke the earlier hover-tooltip attempt).
+function descPopoverEl() {
+  let el = document.getElementById("desc-popover");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "desc-popover";
+    el.className = "desc-popover";
+    document.body.appendChild(el);
+  }
+  return el;
+}
+
+function closeDescPopover() {
+  const el = document.getElementById("desc-popover");
+  if (el) { el.classList.remove("open"); el.dataset.forCell = ""; }
+}
+
+function openDescPopover(cellEl) {
+  const popover = descPopoverEl();
+  const alreadyOpenForThis = popover.classList.contains("open") && popover.dataset.forCell === cellEl.dataset.descId;
+  if (alreadyOpenForThis) { closeDescPopover(); return; }
+
+  popover.textContent = cellEl.textContent.trim();
+  popover.dataset.forCell = cellEl.dataset.descId;
+  popover.classList.add("open");
+
+  const rect = cellEl.getBoundingClientRect();
+  const width = Math.min(360, window.innerWidth - 24);
+  popover.style.width = width + "px";
+  let left = rect.left;
+  if (left + width > window.innerWidth - 12) left = window.innerWidth - width - 12;
+  if (left < 12) left = 12;
+  popover.style.left = left + "px";
+  popover.style.top = (rect.bottom + 6) + "px";
+
+  // Flip above the cell if it would run off the bottom of the viewport.
+  const popRect = popover.getBoundingClientRect();
+  if (popRect.bottom > window.innerHeight - 8) {
+    popover.style.top = Math.max(8, rect.top - popRect.height - 6) + "px";
+  }
+}
+
+let descIdCounter = 0;
+document.addEventListener("click", (e) => {
+  const cell = e.target.closest("[data-desc-cell].ob-desc-clickable");
+  if (cell) {
+    if (!cell.dataset.descId) cell.dataset.descId = "d" + (++descIdCounter);
+    e.stopPropagation();
+    openDescPopover(cell);
+    return;
+  }
+  if (!e.target.closest("#desc-popover")) closeDescPopover();
+});
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDescPopover(); });
+document.getElementById("orders-card").addEventListener("scroll", closeDescPopover);
+window.addEventListener("resize", closeDescPopover);
+
 async function loadOrders() {
   const { data, error } = await supabaseClient
     .from("orders")
@@ -335,11 +392,7 @@ function renderOrdersTable() {
             <td class="ob-sr">${i + 1}</td>
             <td>${escapeHtml(o.order_no)}</td>
             <td>${escapeHtml(o.customer_name)}</td>
-            <td>
-              <div class="ob-desc">${escapeHtml(o.description_of_material || "—")}
-                <div class="ob-desc-tip">${escapeHtml(o.description_of_material || "No description entered.")}</div>
-              </div>
-            </td>
+            <td><div class="ob-desc" data-desc-cell>${escapeHtml(o.description_of_material || "—")}</div></td>
             <td>${escapeHtml(o.client_po_number || "—")}</td>
             <td class="ob-nowrap">${formatDate(o.po_date)}</td>
             <td class="ob-nowrap">${formatDate(o.delivery_date)}</td>
@@ -368,6 +421,12 @@ function renderOrdersTable() {
   });
   card.querySelectorAll("[data-view-po]").forEach(btn => {
     btn.addEventListener("click", () => viewPoFile(btn.dataset.viewPo));
+  });
+
+  // Only cells that are actually truncated get the clickable affordance —
+  // clicking a description that already fits would just show the same text.
+  card.querySelectorAll("[data-desc-cell]").forEach(el => {
+    if (el.scrollWidth > el.clientWidth + 1) el.classList.add("ob-desc-clickable");
   });
 }
 

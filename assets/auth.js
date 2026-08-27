@@ -37,6 +37,14 @@ function formatDate(dateStr) {
   return `${day}-${month}-${year}`;
 }
 
+// "27 Aug, 2026 (Wed)" — shown next to the avatar on every page, via
+// renderHeaderUser() below.
+const WEEKDAY_ABBR = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+function todayHeaderLabel() {
+  const d = new Date();
+  return `${d.getDate()} ${MONTH_ABBR[d.getMonth()]}, ${d.getFullYear()} (${WEEKDAY_ABBR[d.getDay()]})`;
+}
+
 // Returns a YYYY-MM-DD string for a Date using its LOCAL calendar fields.
 // Deliberately does not use toISOString() (that reads UTC fields, which
 // silently shifts the date back a day for anyone in a timezone ahead of
@@ -165,6 +173,7 @@ function renderHeaderUser(profile) {
   if (!headerRoot) return;
   headerRoot.innerHTML = `
     <div class="ph-user">
+      <div class="ph-date">${todayHeaderLabel()}</div>
       <div class="user-chip">
         <div class="avatar">${escapeHtml(initialsFrom(profile.full_name))}</div>
         <div>
