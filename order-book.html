@@ -13,6 +13,7 @@
 .ph-left h1{margin:0; white-space:nowrap;}
 .ph-right{display:flex; align-items:center; gap:16px; flex-shrink:0;}
 .ph-divider{width:1px; align-self:stretch; background:var(--border-strong);}
+.ph-date{font-size:12.5px; font-weight:600; color:var(--text-muted); white-space:nowrap;}
 
 /* Rectangular box for the 3 KPI chips, sitting right next to the title. A
    vertical rule (not the flex gap) separates each chip from the next, so
@@ -83,9 +84,10 @@
       <div class="ph-left">
         <h1>Order Book</h1>
         <div class="ob-chip-group" id="stats-cards"></div>
+        <button type="button" class="btn-primary btn-punch-po" id="open-new-order">+ Punch New PO</button>
       </div>
       <div class="ph-right">
-        <button type="button" class="btn-primary btn-punch-po" id="open-new-order">+ Punch New PO</button>
+        <div class="ph-date" id="ph-date"></div>
         <div class="ph-divider"></div>
         <div id="header-user-root"></div>
       </div>
@@ -211,6 +213,14 @@
 <script src="assets/auth.js"></script>
 <script>
 renderSidebar("order-book");
+
+// "26 Aug, 2026 (Wed)" next to the avatar. MONTH_ABBR comes from auth.js.
+const WEEKDAY_ABBR = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+function todayHeaderLabel() {
+  const d = new Date();
+  return `${d.getDate()} ${MONTH_ABBR[d.getMonth()]}, ${d.getFullYear()} (${WEEKDAY_ABBR[d.getDay()]})`;
+}
+document.getElementById("ph-date").textContent = todayHeaderLabel();
 
 const ORDER_STATUS_PILL = {
   not_started: ["status-notstarted", "Not Started"],
