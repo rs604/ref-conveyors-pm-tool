@@ -171,6 +171,11 @@
 
 /* ---- Read-only cells ---- */
 .ro-cell{padding:4px 7px; color:var(--text-faint);}
+/* Two classes beats .ro-cell's one, so this reliably wins regardless of
+   source order — .date-pair alone was losing this fight to .ro-cell before
+   (same specificity, .ro-cell just happened to come later in the file),
+   which is why Actual Start/Finish kept rendering muted instead of black. */
+.ro-cell.date-pair{color:#000;}
 
 /* ---- Validation error state ---- */
 .cell.cell-error{box-shadow:inset 0 0 0 2px var(--warn-text, #c0392b); background:var(--warn-soft, #fdecea); z-index:3;}
