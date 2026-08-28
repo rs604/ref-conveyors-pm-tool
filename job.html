@@ -33,6 +33,10 @@
 /* The project-status pill + Mark Started / On Hold / Edit Job controls —
    moved here from the page header, pushed to the right side of this row. */
 .stats-strip-actions{margin-left:auto; display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+/* The shared .status-pill class (styles.css) is a fully-rounded stadium
+   shape everywhere else in the app — here specifically it should read as a
+   rectangle with rounded corners, matching the buttons it now sits next to. */
+.stats-strip-actions .status-pill{border-radius:7px;}
 
 .task-no{color:var(--text-faint); font-weight:600; font-size:11.5px; text-align:center;}
 /* Actual Start / Actual Finish — plain black text always (not muted, and
@@ -50,10 +54,16 @@
 .btn-status.hold.active{border-color:var(--warn-text); color:var(--warn-text); background:var(--warn-soft);}
 
 /* ---- Task-row status buttons (Not Started / Started / Completed) ---- */
-.status-cell{padding:0 !important;}
-.status-btns{display:flex; align-items:center; justify-content:center; gap:4px; padding:5px 6px; flex-wrap:nowrap;}
+.status-cell{padding:0 !important; overflow:hidden;}
+/* flex-wrap:wrap is the safety net against overlapping the Delay column —
+   if this cell is ever narrower than the 3 buttons need (e.g. a width
+   saved in localStorage from before this column held buttons), they wrap
+   onto a 2nd line and grow the row instead of spilling into the next
+   column's space. */
+.status-btns{display:flex; align-items:center; justify-content:center; gap:4px; padding:5px 6px; flex-wrap:wrap;}
 .status-btn{border:1.5px solid var(--border-strong); background:var(--surface); color:var(--text-muted); padding:4px 8px; border-radius:6px; font-size:10.5px; font-weight:600; white-space:nowrap; cursor:pointer;}
 .status-btn:hover{background:var(--surface-2);}
+.status-btn:focus{outline:none; box-shadow:0 0 0 2px var(--accent); z-index:2; position:relative;}
 .status-btn-pending.active{border-color:var(--neutral-text); color:var(--neutral-text); background:var(--neutral-soft);}
 .status-btn-in_progress.active{border-color:var(--accent); color:var(--accent-text); background:var(--accent-soft);}
 .status-btn-completed.active{border-color:var(--success-text); color:var(--success-text); background:var(--success-soft);}
@@ -189,6 +199,10 @@
 .cell.range-edge-right{border-right-color:var(--accent);}
 .cell.range-flash{animation:rangeFlash 1.1s ease-out;}
 @keyframes rangeFlash{0%{outline:2px dashed var(--accent); outline-offset:-2px;}100%{outline:2px dashed transparent; outline-offset:-2px;}}
+/* Status buttons swept into a Shift+Arrow range get the same tint as a
+   .cell would, just without the edge-border treatment (not worth the
+   complexity for 3 fixed-position buttons). */
+.status-btn.in-range{background:rgba(59,130,246,0.10);}
 
 .cell-input{width:100%; border:none; outline:none; background:transparent; font:inherit; color:var(--text); padding:0; box-sizing:border-box;}
 /* Wrapped-text editing (Item/Description) — a textarea instead of a
@@ -485,6 +499,13 @@ const STATUS_OPTIONS = [
   { value: "completed", label: "Completed" },
 ];
 
+// The status buttons are reachable columns too — arrow-key navigation (and
+// Shift+Arrow range selection) continues past the last COLUMNS entry
+// (Planned Finish) into them: col COLUMNS.length is the Not Started
+// button, +1 is Started, +2 is Completed. NAV_MAX_COL is the rightmost
+// column arrow-key navigation is allowed to reach.
+const NAV_MAX_COL = COLUMNS.length + STATUS_OPTIONS.length - 1;
+
 function doerOptions() {
   return [{ value: "", label: "Unassigned" }, ...profilesList.map(p => ({ value: p.id, label: p.name }))];
 }
@@ -543,11 +564,12 @@ function isLateDate(actualDateStr, plannedDateStr) {
 // The Status column: three always-visible buttons instead of a dropdown.
 // Clicking one goes straight through handleStatusChange (below) — no
 // select/edit-mode step — which is what auto-populates Actual Start /
-// Actual Finish on the task.
-function statusButtonsHtml(t) {
+// Actual Finish on the task. Each button also carries data-row/data-col
+// so it's a first-class stop for arrow-key navigation, same as a .cell.
+function statusButtonsHtml(t, rowIdx) {
   return `<div class="status-btns" data-id="${t.id}">` +
-    STATUS_OPTIONS.map(o =>
-      `<button type="button" class="status-btn status-btn-${o.value}${t.status === o.value ? " active" : ""}" data-status="${o.value}">${o.label}</button>`
+    STATUS_OPTIONS.map((o, i) =>
+      `<button type="button" class="status-btn status-btn-${o.value}${t.status === o.value ? " active" : ""}" data-row="${rowIdx}" data-col="${COLUMNS.length + i}" data-status="${o.value}">${o.label}</button>`
     ).join("") +
     `</div>`;
 }
@@ -568,7 +590,7 @@ function taskRowHtml(t, rowIdx) {
       <td class="ro-cell date-pair actual-start-cell${startLate ? " late" : ""}">${formatDate(t.actual_start_date)}</td>
       <td class="ro-cell date-pair actual-finish-cell${finishLate ? " late" : ""}">${formatDate(t.actual_finish_date)}</td>
       <td class="ro-cell delay-cell">${t.delay_days > 0 ? `<span class="delay-tag">${t.delay_days}d</span>` : "—"}</td>
-      <td class="status-cell">${statusButtonsHtml(t)}</td>
+      <td class="status-cell">${statusButtonsHtml(t, rowIdx)}</td>
     </tr>`;
 }
 
@@ -578,11 +600,17 @@ const HEADER_LABELS = ["No.", "Item", "Description", "Qty", "Unit", "Doer", "Pla
 // buttons (Not Started / Started / Completed) side by side.
 const DEFAULT_COL_WIDTHS = [42, 180, 180, 64, 84, 150, 126, 126, 110, 110, 64, 260];
 let colWidths = DEFAULT_COL_WIDTHS.slice();
+// A width saved (via column-drag) from before Status held 3 buttons instead
+// of a dropdown could still be sitting in localStorage at the old, much
+// narrower value — that's what was making the buttons spill into Delay.
+const STATUS_COL_MIN_WIDTH = 240;
 (function loadColWidths() {
   try {
     const saved = JSON.parse(localStorage.getItem("jobGridColWidths") || "null");
     if (Array.isArray(saved) && saved.length === DEFAULT_COL_WIDTHS.length) colWidths = saved;
   } catch (e) { /* ignore malformed storage */ }
+  const statusColIdx = HEADER_LABELS.length - 1;
+  if (colWidths[statusColIdx] < STATUS_COL_MIN_WIDTH) colWidths[statusColIdx] = STATUS_COL_MIN_WIDTH;
 })();
 
 function applyColWidths() {
@@ -678,8 +706,15 @@ let selectionActive = null;
 let isDragSelecting = false;
 let dragMoved = false;
 
+// Columns 0..COLUMNS.length-1 are normal editable .cell divs; columns from
+// COLUMNS.length up are the 3 status buttons (see statusButtonsHtml) —
+// this is what lets arrow-key navigation continue right into them instead
+// of stopping dead at Planned Finish.
 function cellAt(row, col) {
-  return document.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`);
+  if (col < COLUMNS.length) {
+    return document.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`);
+  }
+  return document.querySelector(`.status-btn[data-row="${row}"][data-col="${col}"]`);
 }
 function selectCell(cell) {
   if (!cell) return;
@@ -717,7 +752,7 @@ function forEachCellInRect(rect, fn) {
   }
 }
 function renderRangeHighlight() {
-  document.querySelectorAll(".cell.in-range, .cell.range-edge-top, .cell.range-edge-bottom, .cell.range-edge-left, .cell.range-edge-right")
+  document.querySelectorAll(".cell.in-range, .cell.range-edge-top, .cell.range-edge-bottom, .cell.range-edge-left, .cell.range-edge-right, .status-btn.in-range")
     .forEach(el => el.classList.remove("in-range", "range-edge-top", "range-edge-bottom", "range-edge-left", "range-edge-right"));
   const rect = getSelRect();
   if (!rect || !isMultiCellSelection()) return;
@@ -739,7 +774,7 @@ function extendSelection(cell, dRow, dCol) {
   const row = parseInt(cell.dataset.row, 10);
   const col = parseInt(cell.dataset.col, 10);
   const maxRow = currentTasks.length - 1;
-  const maxCol = COLUMNS.length - 1;
+  const maxCol = NAV_MAX_COL;
   const nr = Math.max(0, Math.min(maxRow, row + dRow));
   const nc = Math.max(0, Math.min(maxCol, col + dCol));
   const target = cellAt(nr, nc);
@@ -1111,6 +1146,33 @@ function resolveComboValue(cell, type) {
 // ---- Wiring ----
 const tasksScroll = document.getElementById("tasks-scroll");
 
+// Keyboard handling for a focused status button — arrow keys keep moving
+// through row/column space exactly like a .cell (right off Planned Finish
+// and straight into Not Started → Started → Completed), and Enter (or
+// Space/F2) activates whichever button is focused, same as clicking it.
+tasksScroll.addEventListener("keydown", (e) => {
+  const statusBtn = e.target.closest(".status-btn");
+  if (!statusBtn) return;
+  if (e.shiftKey && ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) {
+    e.preventDefault();
+    const d = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] }[e.key];
+    extendSelection(statusBtn, d[0], d[1]);
+    return;
+  }
+  switch (e.key) {
+    case "ArrowUp": e.preventDefault(); moveSelection(statusBtn, -1, 0); return;
+    case "ArrowDown": e.preventDefault(); moveSelection(statusBtn, 1, 0); return;
+    case "ArrowLeft": e.preventDefault(); moveSelection(statusBtn, 0, -1); return;
+    case "ArrowRight": e.preventDefault(); moveSelection(statusBtn, 0, 1); return;
+    case "Enter": case " ": case "F2":
+      e.preventDefault();
+      statusBtn.click(); // same path as a mouse click — sets status, saves, auto-fills actual dates
+      return;
+    case "Tab": e.preventDefault(); moveTab(statusBtn, !e.shiftKey); return;
+    case "Escape": e.preventDefault(); selectCell(statusBtn); return;
+  }
+});
+
 tasksScroll.addEventListener("keydown", (e) => {
   const cell = e.target.closest(".cell");
   if (!cell) return;
@@ -1272,6 +1334,9 @@ tasksScroll.addEventListener("click", (e) => {
   if (statusBtn) {
     const group = statusBtn.closest(".status-btns");
     const newStatus = statusBtn.dataset.status;
+    // Keep selection/focus tracking in sync, same as clicking a .cell does —
+    // so arrow-key navigation continues correctly from wherever was clicked.
+    selectCell(statusBtn);
     // Reflect the click immediately (before the save round-trip resolves)
     // so the UI feels instant — handleStatusChange's own updateRowComputedCells
     // call re-syncs this from the saved row right after anyway.
