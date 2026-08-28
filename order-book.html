@@ -186,10 +186,6 @@
             <label for="cj_product_type_id">Product Type</label>
             <select id="cj_product_type_id" required><option value="">Loading…</option></select>
           </div>
-          <div class="field" id="cj-product-name-field" hidden>
-            <label for="cj_product_name">Product Name</label>
-            <input id="cj_product_name" type="text" placeholder="e.g. Belt Conveyor for Cement Bags">
-          </div>
           <div class="field">
             <label for="cj_supervisor_id">Supervisor</label>
             <select id="cj_supervisor_id" required><option value="">Choose supervisor…</option></select>
@@ -207,6 +203,32 @@
         <div class="modal-actions">
           <button type="submit" class="btn-primary" id="submit-create-job">Create JC</button>
           <button type="button" class="btn-secondary" id="cancel-create-job">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Product Name popup — appears automatically on top of Create Job Card
+     whenever "Blank Sheet" (or any other template-less product type) is
+     chosen, since a job with no template has no name of its own to show
+     on the job page. -->
+<div class="modal-overlay" id="product-name-modal" hidden>
+  <div class="modal-box" style="max-width:420px;">
+    <div class="modal-head">
+      <h2>Name This Job</h2>
+      <button type="button" class="modal-close" id="close-product-name-modal" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div id="product-name-error-box" class="auth-error" style="display:none;"></div>
+      <form id="product-name-form">
+        <div class="field">
+          <label for="pn_product_name">Product Name</label>
+          <input id="pn_product_name" type="text" placeholder="e.g. Belt Conveyor for Cement Bags">
+        </div>
+        <div class="modal-actions">
+          <button type="submit" class="btn-primary">Continue</button>
+          <button type="button" class="btn-secondary" id="cancel-product-name-modal">Cancel</button>
         </div>
       </form>
     </div>
@@ -589,6 +611,16 @@ async function loadCreateJobDropdowns() {
   updateCjTemplateNote();
 }
 
+// Holds the name typed into the Product Name popup for the currently-
+// selected template-less product type — there's no visible inline field for
+// it any more, the popup is the only way in or out of this value.
+let cjProductName = "";
+
+function cjSelectionNeedsName() {
+  const ptId = document.getElementById("cj_product_type_id").value;
+  return !!ptId && (templateCountByType[ptId] || 0) === 0;
+}
+
 function updateCjTemplateNote() {
   const select = document.getElementById("cj_product_type_id");
   const ptId = select.value;
@@ -601,20 +633,64 @@ function updateCjTemplateNote() {
   if (count > 0) {
     note.textContent = `This will create ${count} task${count > 1 ? "s" : ""} from the "${select.selectedOptions[0]?.textContent}" template. ${prefixNote}`;
   } else {
-    note.textContent = `This will create a blank job card with the standard task columns (item, qty, UOM, dates, etc.) — add tasks manually on the job page, same as any other job. ${prefixNote}`;
+    note.innerHTML = `This will create a blank job card with the standard task columns (item, qty, UOM, dates, etc.) — add tasks manually on the job page, same as any other job. ${prefixNote}`;
   }
 
   // A product type with no templates (e.g. "Blank Sheet") has no name of its
-  // own to show on the job — ask for one up front instead of leaving the
-  // job's product tag reading the generic template-type name everywhere.
-  const nameField = document.getElementById("cj-product-name-field");
-  const nameInput = document.getElementById("cj_product_name");
-  const needsName = !!ptId && count === 0;
-  nameField.hidden = !needsName;
-  nameInput.required = needsName;
-  if (!needsName) nameInput.value = "";
+  // own to show on the job — the popup asks for one the moment this kind of
+  // type is selected; this line is what lets the user see what was typed,
+  // or reopen the popup to set/change it, without it living in the form.
+  if (!ptId || count > 0) return;
+  const nameLine = cjProductName
+    ? `Product name: <b>${escapeHtml(cjProductName)}</b> — <a href="#" id="cj-change-name-link">change</a>`
+    : `<a href="#" id="cj-change-name-link">+ Set a product name</a> (required)`;
+  note.innerHTML += `<div style="margin-top:6px;">${nameLine}</div>`;
+  document.getElementById("cj-change-name-link").addEventListener("click", (e) => {
+    e.preventDefault();
+    openProductNameModal();
+  });
 }
-document.getElementById("cj_product_type_id").addEventListener("change", updateCjTemplateNote);
+
+// The popup pops up automatically the moment a template-less product type
+// becomes the active selection — whether the user just picked one from the
+// dropdown, or it was already the default selection when the modal opened.
+function maybeAutoOpenProductNameModal() {
+  if (cjSelectionNeedsName()) {
+    openProductNameModal();
+  } else {
+    cjProductName = "";
+  }
+}
+document.getElementById("cj_product_type_id").addEventListener("change", () => {
+  updateCjTemplateNote();
+  maybeAutoOpenProductNameModal();
+});
+
+function openProductNameModal() {
+  document.getElementById("pn_product_name").value = cjProductName;
+  document.getElementById("product-name-error-box").style.display = "none";
+  document.getElementById("product-name-modal").hidden = false;
+  setTimeout(() => document.getElementById("pn_product_name").focus(), 0);
+}
+function closeProductNameModal() { document.getElementById("product-name-modal").hidden = true; }
+document.getElementById("close-product-name-modal").addEventListener("click", closeProductNameModal);
+document.getElementById("cancel-product-name-modal").addEventListener("click", closeProductNameModal);
+document.getElementById("product-name-modal").addEventListener("click", (e) => {
+  if (e.target.id === "product-name-modal") closeProductNameModal();
+});
+document.getElementById("product-name-form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const errorBox = document.getElementById("product-name-error-box");
+  const val = document.getElementById("pn_product_name").value.trim();
+  if (!val) {
+    errorBox.textContent = "Please enter a product name.";
+    errorBox.style.display = "block";
+    return;
+  }
+  cjProductName = val;
+  closeProductNameModal();
+  updateCjTemplateNote();
+});
 
 async function openCreateJobModal(orderId) {
   const order = allOrders.find(o => o.id === orderId);
@@ -624,10 +700,15 @@ async function openCreateJobModal(orderId) {
   document.getElementById("cj_customer_name").value = order.customer_name;
   document.getElementById("cj_planned_start_date").value = localDateStr();
   document.getElementById("cj_target_date").value = order.delivery_date || "";
+  cjProductName = "";
   await loadCreateJobDropdowns();
   document.getElementById("create-job-modal").hidden = false;
+  maybeAutoOpenProductNameModal();
 }
-function closeCreateJobModal() { document.getElementById("create-job-modal").hidden = true; }
+function closeCreateJobModal() {
+  document.getElementById("create-job-modal").hidden = true;
+  document.getElementById("product-name-modal").hidden = true;
+}
 document.getElementById("close-create-job").addEventListener("click", closeCreateJobModal);
 document.getElementById("cancel-create-job").addEventListener("click", closeCreateJobModal);
 document.getElementById("create-job-modal").addEventListener("click", (e) => {
@@ -635,6 +716,9 @@ document.getElementById("create-job-modal").addEventListener("click", (e) => {
 });
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
+    // Closest-first: the product-name popup sits on top of Create Job Card,
+    // so Escape should dismiss just that, not both at once.
+    if (!document.getElementById("product-name-modal").hidden) { closeProductNameModal(); return; }
     if (!document.getElementById("new-order-modal").hidden) closeNewOrderModal();
     if (!document.getElementById("create-job-modal").hidden) closeCreateJobModal();
   }
@@ -651,7 +735,7 @@ document.getElementById("create-job-form").addEventListener("submit", async (e) 
   const planned_start_date = document.getElementById("cj_planned_start_date").value;
   const target_date = document.getElementById("cj_target_date").value;
   const needsProductName = (templateCountByType[product_type_id] || 0) === 0;
-  const custom_product_name = document.getElementById("cj_product_name").value.trim();
+  const custom_product_name = cjProductName.trim();
   errorBox.style.display = "none";
 
   if (!product_type_id) {
@@ -665,8 +749,11 @@ document.getElementById("create-job-form").addEventListener("submit", async (e) 
     return;
   }
   if (needsProductName && !custom_product_name) {
-    errorBox.textContent = "This product type has no template — please enter a product name.";
-    errorBox.style.display = "block";
+    // Shouldn't normally happen (the popup auto-opens the moment a
+    // template-less type is selected) — but if it was dismissed without
+    // being filled in, give them one more direct chance instead of just
+    // scolding them with an error message.
+    openProductNameModal();
     return;
   }
 
