@@ -13,6 +13,10 @@
 .page-header{display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:16px;}
 .ph-left{min-width:0;}
 .ph-left h1{font-size:17px; font-weight:700; display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:0;}
+/* Supervisor now lives directly under the customer name in the header
+   (moved out of the stats strip), bold and a size up from the product
+   subtitle below it so it reads as the more important of the two lines. */
+.ph-supervisor{font-size:13.5px; font-weight:700; color:var(--text); margin-top:3px;}
 .ph-subtitle{font-size:12px; color:var(--text-muted); margin-top:2px;}
 .ph-middle{justify-self:center; display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
 #header-user-root{justify-self:end;}
@@ -137,10 +141,10 @@
 .cell.editing{box-shadow:inset 0 0 0 2px var(--accent); background:var(--surface); white-space:normal; overflow:visible; z-index:6;}
 .cell:empty::before, .cell.combo-cell:empty::before{content:"\2014"; color:var(--text-faint);}
 .num-cell{text-align:center;}
-.combo-cell{padding-right:22px;}
-/* Sized to match the (now-removed) freeze-column select's native dropdown
-   arrow, measured directly against it before that control was removed. */
-.combo-caret{position:absolute; right:7px; top:50%; transform:translateY(-50%); font-size:13px; line-height:1; color:var(--text-muted); pointer-events:none;}
+.combo-cell{padding-right:32px;}
+/* Doubled from the size that was matched against the (now-removed)
+   freeze-column select's native dropdown arrow. */
+.combo-caret{position:absolute; right:4px; top:50%; transform:translateY(-50%); font-size:26px; line-height:1; color:var(--text-muted); pointer-events:none;}
 .cell.editing .combo-caret{display:none;}
 
 /* ---- Read-only cells ---- */
@@ -202,6 +206,7 @@ kbd{background:var(--surface-2); border:1px solid var(--border-strong); border-b
     <header class="page-header">
       <div class="ph-left">
         <h1 id="ph-title">Job Detail</h1>
+        <div class="ph-supervisor" id="ph-supervisor"></div>
         <div class="ph-subtitle" id="ph-subtitle"></div>
       </div>
       <div class="ph-middle" id="ph-middle"></div>
@@ -253,6 +258,46 @@ kbd{background:var(--surface-2); border:1px solid var(--border-strong); border-b
   </div>
 </div>
 
+<div class="modal-overlay" id="edit-job-modal" hidden>
+  <div class="modal-box">
+    <div class="modal-head">
+      <h2>Edit Job Card</h2>
+      <button type="button" class="modal-close" id="close-edit-job" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div id="edit-job-error-box" class="auth-error" style="display:none;"></div>
+      <form id="edit-job-form">
+        <div class="modal-grid">
+          <div class="field span-2">
+            <label for="ej_customer_name">Customer Name</label>
+            <input id="ej_customer_name" type="text" required>
+          </div>
+          <div class="field" id="ej-product-name-field" hidden>
+            <label for="ej_product_name">Product Name</label>
+            <input id="ej_product_name" type="text" placeholder="e.g. Belt Conveyor for Cement Bags">
+          </div>
+          <div class="field">
+            <label for="ej_supervisor_id">Supervisor</label>
+            <select id="ej_supervisor_id" required><option value="">Choose supervisor…</option></select>
+          </div>
+          <div class="field">
+            <label for="ej_planned_start_date">Planned Start Date</label>
+            <input id="ej_planned_start_date" type="date" required>
+          </div>
+          <div class="field">
+            <label for="ej_target_date">Target Date</label>
+            <input id="ej_target_date" type="date">
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button type="submit" class="btn-primary" id="submit-edit-job">Save Changes</button>
+          <button type="button" class="btn-secondary" id="cancel-edit-job">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="assets/supabase-client.js"></script>
 <script src="assets/auth.js"></script>
@@ -263,6 +308,9 @@ let currentJob = null;
 let currentTasks = [];
 let profilesList = [];
 let supervisorNameById = {};
+let supervisorsList = [];
+let jobProductTypes = [];
+let jobTemplateCountByType = {};
 
 const PROJECT_STATUS_PILL = {
   not_started: ["status-notstarted", "Not Started"],
@@ -290,6 +338,12 @@ function renderHeader() {
   const completed = currentTasks.filter(t => t.status === "completed").length;
 
   document.getElementById("ph-title").textContent = `${job.job_no} — ${job.customer_name}`;
+  // Supervisor now sits directly under the customer name (bold) instead of
+  // buried at the end of the stats strip — every job is required to have
+  // one (see the Edit Job / Create Job Card rule), so this should never
+  // actually fall back to "No supervisor assigned" for a job created after
+  // that rule went in, only for older jobs saved before it existed.
+  document.getElementById("ph-supervisor").textContent = supervisor ? "Supervisor: " + supervisor : "No supervisor assigned";
   // A job created from a template-less product type (e.g. "Blank Sheet")
   // carries its own custom_product_name instead — show that in place of
   // the generic template-type name, since "Blank Sheet" itself isn't a
@@ -300,6 +354,7 @@ function renderHeader() {
     ${projectStatusPillHtml(job.project_status)}
     <button type="button" class="btn-status ${job.project_status === "in_progress" ? "active" : ""}" id="btn-mark-started">Mark Started</button>
     <button type="button" class="btn-status hold ${job.project_status === "on_hold" ? "active" : ""}" id="btn-on-hold">On Hold</button>
+    <button type="button" class="btn-status" id="btn-edit-job">Edit Job</button>
   `;
 
   document.getElementById("stats-strip").innerHTML = `
@@ -307,11 +362,11 @@ function renderHeader() {
     <div class="stat-chip"><span class="stat-chip-label">Target</span><span class="stat-chip-value">${formatDate(job.target_date)}</span></div>
     <div class="stat-chip"><span class="stat-chip-label">Actual Start</span><span class="stat-chip-value">${formatDate(job.actual_start_date)}</span></div>
     <div class="stat-chip"><span class="stat-chip-label">Completion</span><span class="stat-chip-value" id="completion-stat">${completionStatText(completed, total)}</span></div>
-    <div class="stat-chip-supervisor">${supervisor ? "Supervisor: " + escapeHtml(supervisor) : "No supervisor assigned"}</div>
   `;
 
   document.getElementById("btn-mark-started").addEventListener("click", () => updateProjectStatus("in_progress"));
   document.getElementById("btn-on-hold").addEventListener("click", () => updateProjectStatus("on_hold"));
+  document.getElementById("btn-edit-job").addEventListener("click", openEditJobModal);
 }
 
 async function updateProjectStatus(status) {
@@ -1408,6 +1463,98 @@ async function removeItem(taskId) {
 applyFreeze(3);
 applyColWidths();
 
+// ---- Edit Job modal ----
+// The only way to change a job's own details (customer name, supervisor,
+// planned/target dates, and — for a blank-template job — its product name)
+// once the job card has already been created. Supervisor is required here
+// too, matching the same rule enforced when a job card is first created
+// from the Order Book, so a job can never be edited back into having none.
+function editJobNeedsProductName() {
+  return (jobTemplateCountByType[currentJob.product_type_id] || 0) === 0;
+}
+
+function openEditJobModal() {
+  const job = currentJob;
+  document.getElementById("edit-job-error-box").style.display = "none";
+  document.getElementById("ej_customer_name").value = job.customer_name || "";
+  document.getElementById("ej_planned_start_date").value = job.planned_start_date || "";
+  document.getElementById("ej_target_date").value = job.target_date || "";
+
+  const svSelect = document.getElementById("ej_supervisor_id");
+  svSelect.innerHTML = `<option value="">Choose supervisor…</option>` + supervisorsList.map(s =>
+    `<option value="${s.id}"${s.id === job.supervisor_id ? " selected" : ""}>${escapeHtml(s.name)}</option>`
+  ).join("");
+
+  const needsName = editJobNeedsProductName();
+  document.getElementById("ej-product-name-field").hidden = !needsName;
+  document.getElementById("ej_product_name").value = job.custom_product_name || "";
+
+  document.getElementById("edit-job-modal").hidden = false;
+}
+function closeEditJobModal() { document.getElementById("edit-job-modal").hidden = true; }
+document.getElementById("close-edit-job").addEventListener("click", closeEditJobModal);
+document.getElementById("cancel-edit-job").addEventListener("click", closeEditJobModal);
+document.getElementById("edit-job-modal").addEventListener("click", (e) => {
+  if (e.target.id === "edit-job-modal") closeEditJobModal();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !document.getElementById("edit-job-modal").hidden) closeEditJobModal();
+});
+
+document.getElementById("edit-job-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const errorBox = document.getElementById("edit-job-error-box");
+  const btn = document.getElementById("submit-edit-job");
+  errorBox.style.display = "none";
+
+  const customer_name = document.getElementById("ej_customer_name").value.trim();
+  const supervisor_id = document.getElementById("ej_supervisor_id").value;
+  const planned_start_date = document.getElementById("ej_planned_start_date").value;
+  const target_date = document.getElementById("ej_target_date").value;
+  const needsName = editJobNeedsProductName();
+  const custom_product_name = document.getElementById("ej_product_name").value.trim();
+
+  if (!supervisor_id) {
+    errorBox.textContent = "Please choose a supervisor — every job card must have one.";
+    errorBox.style.display = "block";
+    return;
+  }
+  if (needsName && !custom_product_name) {
+    errorBox.textContent = "This job has no template — please enter a product name.";
+    errorBox.style.display = "block";
+    return;
+  }
+
+  btn.textContent = "Saving…";
+  btn.disabled = true;
+
+  const { data: updated, error } = await supabaseClient
+    .from("jobs")
+    .update({
+      customer_name,
+      supervisor_id,
+      planned_start_date: planned_start_date || null,
+      target_date: target_date || null,
+      custom_product_name: needsName ? custom_product_name : null,
+    })
+    .eq("id", jobId)
+    .select("*, product_types(name)")
+    .single();
+
+  btn.textContent = "Save Changes";
+  btn.disabled = false;
+
+  if (error) {
+    errorBox.textContent = "Couldn't save changes: " + error.message;
+    errorBox.style.display = "block";
+    return;
+  }
+
+  currentJob = updated;
+  renderHeader();
+  closeEditJobModal();
+});
+
 // ---- Keyboard shortcuts modal (Shift+?) ----
 const shortcutsModal = document.getElementById("shortcuts-modal");
 function openShortcutsModal() { shortcutsModal.hidden = false; }
@@ -1439,11 +1586,13 @@ renderSidebar("dashboard");
     return;
   }
 
-  const [{ data: job, error }, { data: employeesForDoer }, { data: supervisors }, { data: tasks }] = await Promise.all([
+  const [{ data: job, error }, { data: employeesForDoer }, { data: supervisors }, { data: tasks }, { data: productTypes }, { data: templates }] = await Promise.all([
     supabaseClient.from("jobs").select("*, product_types(name)").eq("id", jobId).single(),
     supabaseClient.from("employees").select("id, name").eq("is_active", true).order("name"),
-    supabaseClient.from("supervisors").select("id, name"),
+    supabaseClient.from("supervisors").select("id, name").order("name"),
     supabaseClient.from("job_tasks").select("*").eq("job_id", jobId).order("task_no"),
+    supabaseClient.from("product_types").select("id, name").order("name"),
+    supabaseClient.from("task_templates").select("product_type_id"),
   ]);
 
   if (error || !job) {
@@ -1454,8 +1603,14 @@ renderSidebar("dashboard");
 
   currentJob = job;
   profilesList = employeesForDoer || [];
+  supervisorsList = supervisors || [];
   supervisorNameById = Object.fromEntries((supervisors || []).map(s => [s.id, s.name]));
   currentTasks = tasks || [];
+  jobProductTypes = productTypes || [];
+  jobTemplateCountByType = {};
+  (templates || []).forEach(t => {
+    jobTemplateCountByType[t.product_type_id] = (jobTemplateCountByType[t.product_type_id] || 0) + 1;
+  });
 
   document.title = `${job.job_no} — Ref Conveyors Project Tracker`;
 

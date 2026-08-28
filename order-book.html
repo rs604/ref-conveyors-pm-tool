@@ -192,7 +192,7 @@
           </div>
           <div class="field">
             <label for="cj_supervisor_id">Supervisor</label>
-            <select id="cj_supervisor_id"><option value="">Unassigned</option></select>
+            <select id="cj_supervisor_id" required><option value="">Choose supervisor…</option></select>
           </div>
           <div class="field">
             <label for="cj_planned_start_date">Planned Start Date</label>
@@ -582,7 +582,7 @@ async function loadCreateJobDropdowns() {
   }).join("") || `<option value="">No product types found</option>`;
 
   const svSelect = document.getElementById("cj_supervisor_id");
-  svSelect.innerHTML = `<option value="">Unassigned</option>` + (supervisors || []).map(s =>
+  svSelect.innerHTML = `<option value="">Choose supervisor…</option>` + (supervisors || []).map(s =>
     `<option value="${s.id}">${escapeHtml(s.name)}</option>`
   ).join("");
 
@@ -647,7 +647,7 @@ document.getElementById("create-job-form").addEventListener("submit", async (e) 
   const orderId = document.getElementById("cj_order_id").value;
   const order = allOrders.find(o => o.id === orderId);
   const product_type_id = document.getElementById("cj_product_type_id").value;
-  const supervisor_id = document.getElementById("cj_supervisor_id").value || null;
+  const supervisor_id = document.getElementById("cj_supervisor_id").value;
   const planned_start_date = document.getElementById("cj_planned_start_date").value;
   const target_date = document.getElementById("cj_target_date").value;
   const needsProductName = (templateCountByType[product_type_id] || 0) === 0;
@@ -656,6 +656,11 @@ document.getElementById("create-job-form").addEventListener("submit", async (e) 
 
   if (!product_type_id) {
     errorBox.textContent = "Please choose a product type.";
+    errorBox.style.display = "block";
+    return;
+  }
+  if (!supervisor_id) {
+    errorBox.textContent = "Please choose a supervisor — a job card can't be created without one.";
     errorBox.style.display = "block";
     return;
   }
